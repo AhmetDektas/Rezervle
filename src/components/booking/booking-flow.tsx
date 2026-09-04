@@ -532,12 +532,20 @@ export function BookingFlow({
                       : 'Varsa kodunuzu girin; tutarlar hemen güncellenir.'
               }
             >
+              {/*
+                Yer tutucu daha önce "REZZERV100" yazıyordu. Bu gerçek ve aktif
+                bir kampanya kodu (₺100, platform geneli) ve hoş geldin
+                bildiriminde müşteriye bu kod söyleniyor. Gri yer tutucu metni
+                dolu bir alan gibi göründüğü için müşteri kodun uygulandığını
+                sanıp tam fiyat ödeyebiliyordu. Yer tutucu artık girdiyle
+                karışmayacak bir yönerge.
+              */}
               <Input
                 id="promo"
                 value={promo}
                 onChange={(e) => setPromo(e.target.value.toUpperCase())}
-                placeholder="REZZERV100"
-                className="uppercase"
+                placeholder="Kodu buraya yazın"
+                className="uppercase placeholder:normal-case"
                 aria-invalid={Boolean(promoError)}
               />
             </Field>
