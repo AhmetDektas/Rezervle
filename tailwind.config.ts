@@ -37,7 +37,10 @@ const config: Config = {
         ink: {
           DEFAULT: '#0B1F3A',
           2: '#41536B',
-          3: '#76869C',
+          // İkincil metin her yerde 11,5–13 px kullanılır; WCAG AA bu boyutta
+          // 4.5:1 ister. Eski #76869C beyazda 3,7:1, canvas üzerinde 3,5:1
+          // kalıyordu — yani kart açıklamaları sayfanın en zor okunan yazısıydı.
+          3: '#5D6E87', // beyazda 5,2:1 · canvas üzerinde 4,9:1
         },
         success: {
           DEFAULT: '#12855A',
