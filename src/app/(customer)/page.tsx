@@ -29,42 +29,78 @@ async function Categories() {
   );
 }
 
-async function TodayAvailable() {
-  const { items } = await searchBusinesses({ availableToday: true, sort: 'onerilen' }, 12);
-  if (items.length === 0) {
-    return (
-      <p className="card p-5 text-[14px] text-ink-3">
-        Bugün için uygun saat kalmadı. Yarının saatlerine{' '}
-        <Link href="/kesfet" className="font-medium text-brand-600 hover:underline">buradan</Link> bakabilirsiniz.
-      </p>
-    );
-  }
-  return (
-    <ul className="rail lg:grid lg:grid-cols-3 lg:gap-4">
-      {items.slice(0, 6).map((b) => (
-        <li key={b.id} className="w-[85%] shrink-0 snap-start sm:w-[46%] lg:w-auto">
-          <BusinessCard business={b} className="h-full" />
-        </li>
-      ))}
-    </ul>
-  );
-}
+/**
+ * Ana sayfanın üç keşif bölümü tek yerde kurulur.
+ *
+ * Üç bölüm ayrı ayrı sorgulandığında aynı işletmeler tekrar tekrar çıkıyordu
+ * (bir işletme üç bölümde birden görünebiliyordu), çünkü "Bugün müsait" ve
+ * "Öne çıkanlar" aynı sıralamayı kullanıyor. On üç kartın beşi tekrardı; bu,
+ * kataloğu olduğundan küçük gösteriyor ve üç bölümü tek bir uzun listeye
+ * çeviriyordu.
+ *
+ * Tekrar ayıklaması sıraya bağlı: "Bugün müsait" ve "En yüksek puanlılar"
+ * mutlak iddialar taşır (gerçekten bugün müsait / gerçekten en yüksek puanlı),
+ * bu yüzden kendi listelerini korurlar. Genel olan "Öne çıkanlar" ise
+ * diğerlerinde görünenleri atlar.
+ */
+async function Discovery() {
+  const [today, top, featured] = await Promise.all([
+    searchBusinesses({ availableToday: true, sort: 'onerilen' }, 12),
+    searchBusinesses({ sort: 'puan' }, 3),
+    searchBusinesses({ sort: 'onerilen' }, 24),
+  ]);
 
-async function Featured() {
-  const { items } = await searchBusinesses({ sort: 'onerilen' }, 6);
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((b) => <BusinessCard key={b.id} business={b} />)}
-    </div>
-  );
-}
+  const todayItems = today.items.slice(0, 6);
+  const topItems = top.items;
+  const shown = new Set([...todayItems, ...topItems].map((b) => b.id));
+  const featuredItems = featured.items.filter((b) => !shown.has(b.id)).slice(0, 6);
 
-async function TopRated() {
-  const { items } = await searchBusinesses({ sort: 'puan' }, 3);
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((b) => <BusinessCard key={b.id} business={b} />)}
-    </div>
+    <>
+      <Section
+        title="Bugün müsait"
+        description="Bugün içinde randevu verilebilen işletmeler"
+        href="/kesfet?bugun=1"
+      >
+        {todayItems.length === 0 ? (
+          <p className="card p-5 text-[14px] text-ink-3">
+            Bugün için uygun saat kalmadı. Yarının saatlerine{' '}
+            <Link href="/kesfet" className="font-medium text-brand-600 hover:underline">buradan</Link>{' '}
+            bakabilirsiniz.
+          </p>
+        ) : (
+          <ul className="rail lg:grid lg:grid-cols-3 lg:gap-4">
+            {todayItems.map((b) => (
+              <li key={b.id} className="w-[85%] shrink-0 snap-start sm:w-[46%] lg:w-auto">
+                <BusinessCard business={b} className="h-full" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section
+        title="En yüksek puanlılar"
+        description="Müşteri değerlendirmelerine göre"
+        href="/kesfet?sirala=puan"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {topItems.map((b) => <BusinessCard key={b.id} business={b} />)}
+        </div>
+      </Section>
+
+      {featuredItems.length > 0 ? (
+        <Section
+          title="Keşfetmediklerin"
+          description="Yukarıdakilerin dışında, Ankara’da randevu alabileceğin işletmeler"
+          href="/kesfet"
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredItems.map((b) => <BusinessCard key={b.id} business={b} />)}
+          </div>
+        </Section>
+      ) : null}
+    </>
   );
 }
 
@@ -120,23 +156,9 @@ export default function HomePage() {
           </Suspense>
         </Section>
 
-        <Section title="Bugün müsait" description="Bugün içinde randevu verilebilen işletmeler" href="/kesfet?bugun=1">
-          <Suspense fallback={<SkeletonCards count={3} />}>
-            <TodayAvailable />
-          </Suspense>
-        </Section>
-
-        <Section title="Öne çıkanlar" description="Rezzerv’de en çok tercih edilenler" href="/kesfet">
-          <Suspense fallback={<SkeletonCards count={6} />}>
-            <Featured />
-          </Suspense>
-        </Section>
-
-        <Section title="En yüksek puanlılar" description="Müşteri değerlendirmelerine göre" href="/kesfet?sirala=puan">
-          <Suspense fallback={<SkeletonCards count={3} />}>
-            <TopRated />
-          </Suspense>
-        </Section>
+        <Suspense fallback={<SkeletonCards count={6} />}>
+          <Discovery />
+        </Suspense>
 
         <section className="mt-10 rounded-2xl border border-line bg-surface p-5 sm:p-7">
           <h2 className="section-title">Rezzerv nasıl çalışır?</h2>
