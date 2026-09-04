@@ -19,6 +19,11 @@ export const SECTOR_ICON: Record<string, LucideIcon> = {
  * Fotoğraf yoksa (veya yüklenemezse) kapak, işletmenin kendi renk tonundan
  * türeyen bir gradient ve sektör deseniyle çizilir. Böylece liste hiçbir
  * koşulda gri kutulara düşmez ve dış kaynağa bağımlı değildir.
+ *
+ * Doygunluk bilinçli olarak düşük (%22–26). Kapak bir yer tutucudur, bilgi
+ * taşımaz; yüksek doygunlukta 15 kart 15 farklı renkte bağırınca sayfanın en
+ * gürültülü ögesi anlamsız bir dekorasyon oluyordu ve asıl içerik (isim,
+ * açıklama, fiyat) geride kalıyordu. Ton farkı işletmeyi ayırt etmeye yetiyor.
  */
 export function BusinessCover({
   hue,
@@ -36,11 +41,12 @@ export function BusinessCover({
   rounded?: string;
 }) {
   const Icon = SECTOR_ICON[sector] ?? Sparkles;
+  const h = ((hue % 360) + 360) % 360;
   return (
     <div
       className={cn('relative overflow-hidden bg-brand-900', rounded, className)}
       style={{
-        backgroundImage: `linear-gradient(135deg, hsl(${hue} 68% 46%), hsl(${(hue + 28) % 360} 72% 32%))`,
+        backgroundImage: `linear-gradient(135deg, hsl(${h} 24% 31%), hsl(${(h + 24) % 360} 27% 19%))`,
       }}
       aria-hidden
     >

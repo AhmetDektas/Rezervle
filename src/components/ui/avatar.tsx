@@ -2,7 +2,11 @@ import { cn } from '@/lib/utils';
 import { initials as toInitials, } from '@/lib/format';
 import { hueFromString } from '@/lib/utils';
 
-/** Fotoğraf yoksa isimden türeyen kararlı gradient — hiçbir zaman boş kutu değil. */
+/**
+ * Fotoğraf yoksa isimden türeyen kararlı gradient — hiçbir zaman boş kutu değil.
+ * Kapaklarla aynı gerekçeyle düşük doygunluk: avatar kimliği ayırt ettirir,
+ * dikkat çekmez. Baş harfler için beyaz metin AA eşiğini geçecek kadar koyu.
+ */
 export function Avatar({
   name,
   src,
@@ -16,7 +20,9 @@ export function Avatar({
   className?: string;
   hue?: number;
 }) {
-  const h = hue ?? hueFromString(name);
+  // brandHue veritabanından sınırsız gelebiliyor (hsl(777 …) gibi değerler
+  // üretiyordu); burada 0..359 aralığına indiriyoruz.
+  const h = (((hue ?? hueFromString(name)) % 360) + 360) % 360;
   const font = Math.max(11, Math.round(size * 0.36));
   return (
     <span
@@ -28,7 +34,7 @@ export function Avatar({
         width: size,
         height: size,
         fontSize: font,
-        background: `linear-gradient(140deg, hsl(${h} 70% 55%), hsl(${(h + 30) % 360} 66% 40%))`,
+        background: `linear-gradient(140deg, hsl(${h} 27% 40%), hsl(${(h + 26) % 360} 30% 29%))`,
       }}
       aria-hidden
     >
