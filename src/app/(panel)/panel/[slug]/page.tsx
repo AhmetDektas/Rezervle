@@ -191,7 +191,20 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
                         <p className="text-[15px] font-semibold text-navy">{hhmm(r.startMin)}</p>
                         <p className="text-[12px] text-ink-3">{hhmm(r.endMin)}</p>
                       </div>
-                      <div className="min-w-0 flex-1">
+                      {/*
+                        Aksiyon grubu aynı satırda duruyor ve içerik `flex-1`
+                        olduğu için tüm genişliği ona bırakıyordu: dört düğmede
+                        içerik 181 px'e, onay bekleyen satırlarda beş düğme
+                        çıktığı için 54 px'e düşüyordu. O satırda müşteri adı,
+                        hizmet ve telefon üçer dört satıra sarıyor, satır
+                        yüksekliği 127 px'ten 357 px'e çıkıyordu.
+
+                        Alt sınır koyunca düğmeler sığmadığında kendi satırına
+                        iniyor; içerik tek satırda okunuyor ve satır yüksekliği
+                        aşağı yukarı aynı kalıyor. Mobilde aksiyonlar zaten
+                        `w-full`, o yüzden kısıt sm'den itibaren.
+                      */}
+                      <div className="min-w-0 flex-1 sm:min-w-[260px]">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-[14.5px] font-medium text-navy">{r.customer.name}</p>
                           <StatusBadge status={r.status as ReservationStatus} />
