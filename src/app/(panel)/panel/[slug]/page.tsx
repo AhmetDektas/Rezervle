@@ -44,7 +44,7 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
   const t = today();
   const nm = nowMinutes();
 
-  const [stats, agenda, utilization, pendingSoon] = await Promise.all([
+  const [stats, agenda, utilization, pendingSoon, pendingLater] = await Promise.all([
     rangeStats(business.id, t, t),
     dayAgenda(business.id, t),
     utilizationStats(business.id, t, t),
@@ -56,6 +56,13 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
         service: { select: { name: true } },
         customer: { select: { name: true, phone: true } },
       },
+    }),
+    // Üstteki kutu yalnızca bugünü sayar, yandaki liste bugün ve sonrasını
+    // gösterir. İkisi yan yana durduğu için "0 · Hepsi onaylı" yazarken beş
+    // kişilik onay listesi göstermek çelişki yaratıyordu; ipucunda ileri
+    // tarihli bekleyenlerin sayısını da söylüyoruz.
+    prisma.reservation.count({
+      where: { businessId: business.id, status: 'PENDING', date: { gt: t } },
     }),
   ]);
 
@@ -119,10 +126,16 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
           icon={<Wallet size={16} />}
         />
         <StatCard
-          label="Onay bekleyen"
+          label="Bugün onay bekleyen"
           value={String(stats.pending)}
-          hint={stats.pending > 0 ? 'Aksiyon gerekiyor' : 'Hepsi onaylı'}
-          tone={stats.pending > 0 ? 'warn' : 'neutral'}
+          hint={
+            stats.pending > 0
+              ? 'Aksiyon gerekiyor'
+              : pendingLater > 0
+                ? `${pendingLater} ileri tarihli bekliyor`
+                : 'Hepsi onaylı'
+          }
+          tone={stats.pending > 0 || pendingLater > 0 ? 'warn' : 'neutral'}
           icon={<Clock4 size={16} />}
         />
         <StatCard
