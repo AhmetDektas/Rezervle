@@ -16,7 +16,7 @@ import { nextAvailableSlots } from '@/server/discovery';
 import { BusinessCover } from '@/components/business/cover';
 import { FavoriteButton } from '@/components/business/favorite-button';
 import { BusinessGallery } from '@/components/business/gallery';
-import { Rating } from '@/components/ui/rating';
+import { Rating, ReviewStars } from '@/components/ui/rating';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
@@ -291,7 +291,7 @@ export default async function BusinessPage({ params }: { params: Params }) {
                           <p className="text-[14px] font-medium text-navy">{r.user.name}</p>
                           <p className="text-[12px] text-ink-3">{ago(r.createdAt)}</p>
                         </div>
-                        <Rating value={r.rating} showValue={false} size={15} />
+                        <ReviewStars value={r.rating} />
                       </div>
                       {r.comment ? (
                         <p className="mt-2.5 text-[14px] leading-relaxed text-ink-2">{r.comment}</p>

@@ -16,7 +16,7 @@ import { customerCanModify } from '@/server/reservations';
 import { StatusBadge, Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
-import { Rating } from '@/components/ui/rating';
+import { Rating, ReviewStars } from '@/components/ui/rating';
 import { ReservationActions } from '@/components/booking/reservation-actions';
 import { money, duration, dayWithWeekday, phone as fmtPhone, ago } from '@/lib/format';
 import { hhmm } from '@/lib/time';
@@ -251,7 +251,7 @@ export default async function ReservationDetailPage({
         <div className="card mt-4 p-4 sm:p-5">
           <p className="text-[15px] font-semibold text-navy">Değerlendirmeniz</p>
           <div className="mt-2">
-            <Rating value={reservation.review.rating} showValue={false} />
+            <ReviewStars value={reservation.review.rating} size={16} />
           </div>
           {reservation.review.comment ? (
             <p className="mt-2 text-[14px] leading-relaxed text-ink-2">{reservation.review.comment}</p>

@@ -11,7 +11,7 @@ import { PayoutSettings } from '@/components/panel/payout-settings';
 import { BusinessCover } from '@/components/business/cover';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Rating } from '@/components/ui/rating';
+import { Rating, ReviewStars } from '@/components/ui/rating';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { jsonParse } from '@/lib/utils';
@@ -211,7 +211,7 @@ export default async function SettingsPage({ params }: { params: Params }) {
                     <p className="text-[12px] text-ink-3">{ago(r.createdAt)}</p>
                   </div>
                   {r.status === 'REPORTED' ? <Badge tone="red">Şikayet edildi</Badge> : null}
-                  <Rating value={r.rating} showValue={false} size={15} />
+                  <ReviewStars value={r.rating} />
                 </div>
                 {r.comment ? (
                   <p className="mt-2 text-[13.5px] leading-relaxed text-ink-2">{r.comment}</p>

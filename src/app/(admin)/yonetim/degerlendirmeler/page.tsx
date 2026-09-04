@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import { ReviewModeration } from '@/components/admin/admin-actions';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Rating } from '@/components/ui/rating';
+import { ReviewStars } from '@/components/ui/rating';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ago } from '@/lib/format';
@@ -91,7 +91,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                       · {ago(r.createdAt)}
                     </p>
                   </div>
-                  <Rating value={r.rating} showValue={false} size={15} />
+                  <ReviewStars value={r.rating} />
                   {r.status === 'REPORTED' ? <Badge tone="red">Şikayet</Badge> : null}
                   {r.status === 'HIDDEN' ? <Badge tone="neutral">Gizli</Badge> : null}
                 </div>

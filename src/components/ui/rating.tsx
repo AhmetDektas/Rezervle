@@ -32,6 +32,32 @@ export function Rating({
   );
 }
 
+/**
+ * Tek bir değerlendirmenin puanı: beş yıldızın kaçının dolu olduğu.
+ *
+ * Bu ekranlarda daha önce tek bir dolu yıldız çiziliyor, puan yalnızca `title`
+ * ipucunda duruyordu. Yani 2 puanlık bir yorumla 5 puanlık yorum gözle
+ * ayırt edilemiyordu; dokunmatik ekranda hover olmadığı için ipucu hiç
+ * görünmüyordu. Toplu ortalama için `Rating` (yıldız + sayı) doğru biçim,
+ * tek yorum için beş yıldız okunur olan.
+ */
+export function ReviewStars({ value, size = 15 }: { value: number; size?: number }) {
+  const filled = Math.round(value);
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5" title={`${filled} / 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          size={size}
+          className={n <= filled ? 'fill-warn text-warn' : 'text-line-strong'}
+          aria-hidden
+        />
+      ))}
+      <span className="sr-only">5 üzerinden {filled} puan</span>
+    </span>
+  );
+}
+
 /** Yıldızlarla puan seçimi (klavye ile de çalışır: radio grubu). */
 export function RatingInput({
   value,
