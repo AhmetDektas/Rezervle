@@ -41,9 +41,12 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// data-scroll-behavior: Next.js rota geçişlerinde yumuşak kaydırmayı şimdiye
+// kadar kendisi kapatıyordu; gelecek sürümde bu niyetin açıkça belirtilmesi
+// gerekiyor. Belirtilmezse her sayfa yüklemesinde konsola uyarı düşüyor.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={inter.variable}>
+    <html lang="tr" className={inter.variable} data-scroll-behavior="smooth">
       <body style={{ ['--font-sans' as string]: 'var(--font-inter), ui-sans-serif, system-ui, sans-serif' }}>
         <a
           href="#icerik"
