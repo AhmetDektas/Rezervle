@@ -32,6 +32,12 @@ export function CustomerHeader({
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
+  // Ana sayfada arama kutusu kahramanın içinde duruyor ve sayfanın asıl
+  // çağrısı o. Başlıktaki kutu onunla birlikte görününce ekranda 30 px arayla
+  // iki özdeş arama alanı oluyordu (mobilde üst üste); hangisinin ne yaptığı
+  // belirsizdi. Diğer sayfalarda başlıktaki kutu tek ve kalıcı arama yeri.
+  const searchVisible = showSearch && pathname !== '/';
+
   React.useEffect(() => setMenuOpen(false), [pathname]);
   React.useEffect(() => {
     function onDown(e: MouseEvent) {
@@ -55,7 +61,7 @@ export function CustomerHeader({
           <Logo size={28} />
         </Link>
 
-        {showSearch ? (
+        {searchVisible ? (
           <React.Suspense fallback={<div className="hidden h-11 flex-1 md:block" />}>
             <SearchInput className="hidden flex-1 md:block" />
           </React.Suspense>
@@ -156,7 +162,7 @@ export function CustomerHeader({
         </div>
       </div>
 
-      {showSearch ? (
+      {searchVisible ? (
         <div className="border-t border-line px-4 py-2.5 md:hidden">
           <React.Suspense fallback={<div className="h-11" />}>
             <SearchInput />
