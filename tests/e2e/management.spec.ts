@@ -113,7 +113,25 @@ test.describe('işletme yönetimi', () => {
     await page.getByLabel('Müşteri adı').fill('Telefonla Gelen');
     await page.getByLabel('Telefon').fill(`05${Date.now().toString().slice(-9)}`);
 
+    // Tarih varsayılan olarak bugün gelir. İşletme 19:00'da kapanıyor ve
+    // muayene 30 dakika; koşu 18:30'dan sonraya denk gelirse bugün için hiç
+    // uygun saat kalmaz ve test duvar saatine bağlı olarak düşerdi. Uygulama
+    // bu durumda doğru davranıyor ("Bu gün için uygun saat yok" deyip düğmeyi
+    // kilitliyor) — sorun testin bugünde kapasite varsaymasıydı.
+    //
+    // Kapalı günler de olabileceği için sabit bir tarih yerine uygun saat
+    // bulunana kadar ileri gidiyoruz. Alan #n-date ile seçiliyor: "Tarih"
+    // etiketi filtre panelindeki "Başlangıç tarihi"/"Bitiş tarihi" ile de
+    // eşleşiyor.
     const slots = page.locator('button').filter({ hasText: /^\d{2}:\d{2}$/ });
+    const day = new Date();
+    for (let i = 0; i < 8 && (await slots.count()) === 0; i++) {
+      day.setDate(day.getDate() + 1);
+      const iso = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      await page.locator('#n-date').fill(iso);
+      await page.waitForTimeout(900);
+    }
+
     await expect(slots.first()).toBeVisible({ timeout: 15_000 });
     await slots.first().click();
     await page.getByRole('button', { name: 'Randevuyu oluştur' }).click();
