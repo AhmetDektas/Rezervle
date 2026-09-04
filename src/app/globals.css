@@ -76,8 +76,15 @@
     @apply transition duration-200 hover:-translate-y-0.5 hover:shadow-lift;
   }
 
+  /*
+    Bölüm başlığı ile kart başlığı arasında yalnızca 3 px ve sıfır ağırlık
+    farkı vardı (18/600 ve 15/600). "Bugün müsait" ile "Gülveren Spor
+    Tesisleri" neredeyse aynı tipografik sesle konuşuyor, sayfayı tararken
+    bölümlerin nerede başladığı okunmuyordu. 36 -> 21 -> 15 basamağı
+    bölümü kartın üstüne çıkarıyor.
+  */
   .section-title {
-    @apply text-[17px] font-semibold text-navy sm:text-lg;
+    @apply text-[19px] font-semibold tracking-[-0.015em] text-navy sm:text-[21px];
   }
 
   .muted {
