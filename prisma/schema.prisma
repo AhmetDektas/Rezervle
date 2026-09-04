@@ -1,0 +1,556 @@
+// Rezzerv — paylasilan rezervasyon cekirdegi + sektore ozel uzanti noktalari.
+//
+// Yerelde SQLite kullanilir (kurulum gerektirmez). PostgreSQL'e gecmek icin:
+//   1) provider = "postgresql"
+//   2) DATABASE_URL'i postgres baglanti dizesiyle degistirin
+//   3) prisma migrate dev
+// Sema bilerek enum kullanmaz; SQLite enum desteklemez ve sabitler
+// src/lib/constants.ts icinde tip guvenli birlik tipleri olarak tanimlidir.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Kimlik ve erisim -------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         String   @default("CUSTOMER") // CUSTOMER | STAFF | OWNER | ADMIN
+  avatarSeed   String   @default("0")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customerProfile CustomerProfile?
+  ownedBusinesses Business[]                 @relation("BusinessOwner")
+  staffProfiles   StaffMember[]
+  reservations    Reservation[]              @relation("ReservationCustomer")
+  createdRes      Reservation[]              @relation("ReservationCreator")
+  favorites       Favorite[]
+  reviews         Review[]
+  notifications   Notification[]
+  notesAbout      CustomerNote[]             @relation("NoteCustomer")
+  notesWritten    CustomerNote[]             @relation("NoteAuthor")
+  statusChanges   ReservationStatusHistory[]
+  businessChanges BusinessStatusHistory[]
+  auditLogs       AuditLog[]
+  tagLinks        CustomerTagLink[]
+  pets            PetProfile[]
+
+  @@index([role])
+}
+
+model CustomerProfile {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city       String    @default("Ankara")
+  district   String?
+  birthDate  DateTime?
+  gender     String?
+  notes      String?
+  smsOptIn   Boolean   @default(true)
+  emailOptIn Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+// --- Isletmeler ve subeler --------------------------------------------
+
+model BusinessCategory {
+  id         String     @id @default(cuid())
+  slug       String     @unique
+  name       String
+  sector     String // DENTAL | BEAUTY | AESTHETIC | VET | GYM | RESTAURANT
+  icon       String     @default("sparkles")
+  blurb      String     @default("")
+  sortOrder  Int        @default(0)
+  active     Boolean    @default(true)
+  businesses Business[]
+
+  @@index([sector])
+}
+
+model Business {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  categoryId      String
+  category        BusinessCategory @relation(fields: [categoryId], references: [id])
+  ownerId         String
+  owner           User             @relation("BusinessOwner", fields: [ownerId], references: [id])
+  tagline         String           @default("")
+  about           String           @default("")
+  phone           String?
+  email           String?
+  website         String?
+  coverUrl        String?
+  brandHue        Int              @default(214)
+  priceLevel      Int              @default(2)
+  amenities       String           @default("[]")
+  status          String           @default("PENDING") // PENDING | APPROVED | REJECTED | SUSPENDED
+  rejectionReason String?
+  featured        Boolean          @default(false)
+  ratingAvg       Float            @default(0)
+  ratingCount     Int              @default(0)
+  sectorMeta      String?
+
+  // --- Kapora paketi ---
+  // depositAddon platform tarafından açılır (paket satın alındı), depositEnabled
+  // işletmenin kendi anahtarıdır. İkisi birden açık değilse kapora istenmez.
+  depositAddon       Boolean @default(false)
+  depositEnabled     Boolean @default(false)
+  depositKind        String  @default("PERCENT") // PERCENT | AMOUNT
+  depositValue       Int     @default(20)
+  depositMinPrice    Int     @default(0) // bu tutarın altındaki randevularda kapora istenmez
+  depositRefundHours Int     @default(24) // bu süreden önce iptalde kapora iade edilir
+
+  // --- Pazaryeri tahsilatı ---
+  // Müşteri parayı tek seferde öder; lisanslı ödeme kuruluşu tutarı ikiye
+  // böler ve işletme payını hak ediş oluşana kadar bloke tutar. Platform
+  // müşteri parasını hiçbir zaman kendi hesabında tutmaz.
+  commissionRate Int      @default(30) // kaporadan alınan platform komisyonu (%)
+  subMerchantKey String? // ödeme kuruluşundaki alt üye işyeri anahtarı
+  payoutTitle    String? // hak ediş hesabının ünvanı
+  payoutIban     String?
+  taxNumber      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  branches      Branch[]
+  services      Service[]
+  staff         StaffMember[]
+  reservations  Reservation[]
+  images        BusinessImage[]
+  reviews       Review[]
+  favorites     Favorite[]
+  promotions    Promotion[]
+  customerNotes CustomerNote[]
+  tags          CustomerTag[]
+  statusHistory BusinessStatusHistory[]
+
+  @@index([status, featured])
+  @@index([categoryId])
+  @@index([ownerId])
+}
+
+model BusinessImage {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  url        String
+  caption    String   @default("")
+  sortOrder  Int      @default(0)
+
+  @@index([businessId, sortOrder])
+}
+
+model BusinessStatusHistory {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  fromStatus String
+  toStatus   String
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  city       String   @default("Ankara")
+  district   String
+  address    String
+  lat        Float?
+  lng        Float?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  hours        BranchHour[]
+  staff        StaffMember[]
+  reservations Reservation[]
+  timeOff      TimeOff[]
+
+  @@index([businessId, active])
+  @@index([city, district])
+}
+
+model BranchHour {
+  id       String  @id @default(cuid())
+  branchId String
+  branch   Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  weekday  Int // 0=Pazar .. 6=Cumartesi
+  openMin  Int
+  closeMin Int
+  closed   Boolean @default(false)
+
+  @@unique([branchId, weekday])
+}
+
+// --- Hizmetler ve personel --------------------------------------------
+
+model Service {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  description String   @default("")
+  durationMin Int
+  bufferMin   Int      @default(0)
+  price       Int
+  capacity    Int      @default(1) // >1 → grup dersi / masa (gym & restoran uzantisi)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staffLinks   StaffService[]
+  reservations Reservation[]
+
+  @@index([businessId, active])
+}
+
+model StaffMember {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  displayName String
+  title       String   @default("")
+  bio         String   @default("")
+  hue         Int      @default(214)
+  avatarUrl   String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  hours        StaffHour[]
+  breaks       StaffBreak[]
+  timeOff      TimeOff[]
+  services     StaffService[]
+  reservations Reservation[]
+
+  @@index([businessId, active])
+  @@index([branchId])
+}
+
+model StaffService {
+  staffId   String
+  serviceId String
+  staff     StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service   Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, serviceId])
+  @@index([serviceId])
+}
+
+model StaffHour {
+  id       String      @id @default(cuid())
+  staffId  String
+  staff    StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  weekday  Int
+  startMin Int
+  endMin   Int
+  closed   Boolean     @default(false)
+
+  @@unique([staffId, weekday])
+}
+
+model StaffBreak {
+  id       String      @id @default(cuid())
+  staffId  String
+  staff    StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  weekday  Int
+  startMin Int
+  endMin   Int
+  label    String      @default("Mola")
+
+  @@index([staffId, weekday])
+}
+
+model TimeOff {
+  id        String       @id @default(cuid())
+  staffId   String?
+  staff     StaffMember? @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branchId  String?
+  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime
+  type      String       @default("LEAVE") // LEAVE | BLOCK | HOLIDAY
+  reason    String       @default("")
+  createdAt DateTime     @default(now())
+
+  @@index([staffId, startsAt])
+  @@index([branchId, startsAt])
+}
+
+// --- Rezervasyonlar ---------------------------------------------------
+
+model Reservation {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  businessId  String
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch      @relation(fields: [branchId], references: [id])
+  serviceId   String
+  service     Service     @relation(fields: [serviceId], references: [id])
+  staffId     String
+  staff       StaffMember @relation(fields: [staffId], references: [id])
+  customerId  String
+  customer    User        @relation("ReservationCustomer", fields: [customerId], references: [id])
+  createdById String?
+  createdBy   User?       @relation("ReservationCreator", fields: [createdById], references: [id])
+
+  date     String // YYYY-MM-DD, Europe/Istanbul yerel gunu
+  startMin Int // gun ici dakika (yerel)
+  endMin   Int // hizmet suresi sonu (tampon haric)
+  blockEnd Int // tampon dahil bitis — cakisma hesabi bunu kullanir
+  startsAt DateTime // UTC ani
+  endsAt   DateTime
+
+  status       String     @default("PENDING") // PENDING|CONFIRMED|ARRIVED|COMPLETED|NO_SHOW|CANCELLED
+  channel      String     @default("ONLINE") // ONLINE | PHONE | WALK_IN | STAFF
+  price        Int
+  discount     Int        @default(0)
+  finalPrice   Int
+  note         String?
+  internalNote String?
+  cancelReason String?
+  cancelledAt  DateTime?
+  promotionId  String?
+  promotion    Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  extra        String? // sektor uzantisi: {"partySize":4} | {"petId":"..."}
+
+  // Kapora, randevu anında hesaplanıp dondurulur: işletme sonradan oranı
+  // değiştirse bile alınmış kapora değişmez.
+  depositAmount Int    @default(0)
+  depositStatus String @default("NONE") // NONE | PAID | REFUNDED | FORFEITED
+
+  // Veritabani duzeyinde cift rezervasyon kilidi. Aktif kayitlarda
+  // "staffId:date:startMin" degerini tutar; iptalde null yapilir
+  // (NULL'lar unique kisitini tetiklemez) ve slot yeniden satilabilir.
+  slotKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  history ReservationStatusHistory[]
+  review  Review?
+  payment Payment?
+
+  @@index([businessId, date])
+  @@index([staffId, date])
+  @@index([branchId, date])
+  @@index([customerId, startsAt])
+  @@index([status])
+}
+
+model ReservationStatusHistory {
+  id            String      @id @default(cuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  fromStatus    String?
+  toStatus      String
+  actorId       String?
+  actor         User?       @relation(fields: [actorId], references: [id])
+  note          String?
+  createdAt     DateTime    @default(now())
+
+  @@index([reservationId, createdAt])
+}
+
+// --- CRM --------------------------------------------------------------
+
+model CustomerNote {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User     @relation("NoteCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?    @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, customerId])
+}
+
+model CustomerTag {
+  id         String            @id @default(cuid())
+  businessId String
+  business   Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  tone       String            @default("blue")
+  links      CustomerTagLink[]
+
+  @@unique([businessId, name])
+}
+
+model CustomerTagLink {
+  tagId      String
+  customerId String
+  tag        CustomerTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  customer   User        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([tagId, customerId])
+  @@index([customerId])
+}
+
+// --- Sosyal -----------------------------------------------------------
+
+model Favorite {
+  userId     String
+  businessId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, businessId])
+  @@index([businessId])
+}
+
+model Review {
+  id            String       @id @default(cuid())
+  businessId    String
+  business      Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservationId String?      @unique
+  reservation   Reservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  rating        Int
+  comment       String       @default("")
+  reply         String?
+  repliedAt     DateTime?
+  status        String       @default("PUBLISHED") // PUBLISHED | REPORTED | HIDDEN
+  reportReason  String?
+  createdAt     DateTime     @default(now())
+
+  @@index([businessId, status])
+  @@index([userId])
+}
+
+// --- Kampanyalar, bildirimler, odeme ----------------------------------
+
+model Promotion {
+  id          String    @id @default(cuid())
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  code        String    @unique
+  title       String
+  description String    @default("")
+  kind        String    @default("PERCENT") // PERCENT | AMOUNT
+  value       Int
+  minAmount   Int       @default(0)
+  startsAt    DateTime
+  endsAt      DateTime
+  maxUses     Int       @default(0) // 0 = sinirsiz
+  usedCount   Int       @default(0)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  reservations Reservation[]
+
+  @@index([businessId, active])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String    @default("INFO") // INFO | RESERVATION | REVIEW | SYSTEM | PROMO
+  title     String
+  body      String    @default("")
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model Payment {
+  id             String      @id @default(cuid())
+  reservationId  String      @unique
+  reservation    Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  provider       String      @default("mock")
+  method         String      @default("AT_VENUE") // AT_VENUE | ONLINE
+  status         String      @default("PENDING") // PENDING | PAID | REFUNDED | FAILED
+  // amount: müşterinin bu randevu için toplam borcu.
+  // capturedAmount: uygulama üzerinden fiilen tahsil edilen (kapora). Kalanı
+  // işletmede ödenir ve bizim sistemimizden geçmez.
+  amount         Int
+  capturedAmount Int         @default(0)
+  currency       String      @default("TRY")
+  providerRef    String?
+  failureReason  String?
+  createdAt      DateTime    @default(now())
+  paidAt         DateTime?
+  refundedAt     DateTime?
+
+  // --- Komisyon ve hak ediş ---
+  // Oran ödeme anında dondurulur: sözleşme sonradan değişse bile geçmiş
+  // tahsilatın parçalanması değişmez.
+  commissionRate   Int       @default(0)
+  commissionAmount Int       @default(0) // platform payı
+  netAmount        Int       @default(0) // işletmeye kalan
+  // HELD: ödeme kuruluşunda bloke · RELEASED: işletmeye hak ediş yazıldı
+  // REFUNDED: müşteriye iade edildi, komisyon da geri alındı
+  settlementStatus String    @default("NONE") // NONE | HELD | RELEASED | REFUNDED
+  releasedAt       DateTime?
+  settlementNote   String?
+
+  @@index([settlementStatus])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String
+  meta      String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// --- Sektor uzanti noktasi: veteriner ---------------------------------
+// Cekirdek rezervasyon akisi bu modeli bilmez; Reservation.extra icindeki
+// {"petId": "..."} ile iliskilenir. Diger sektorler ayni deseni kullanir.
+
+model PetProfile {
+  id        String    @id @default(cuid())
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  species   String // DOG | CAT | BIRD | OTHER
+  breed     String?
+  birthDate DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  @@index([ownerId])
+}

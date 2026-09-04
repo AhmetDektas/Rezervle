@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, "Segoe UI", Arial, sans-serif; background: #f5f6f9; color: #111726; -webkit-font-smoothing: antialiased; }
+    a { color: #004e92; } a:hover { color: #003a6e; }
+    .dsp { font-family: "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.025em; }
+    .blk { background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; padding: 14px 16px; position: relative; }
+    .blk b { display: block; font-size: 13px; font-weight: 620; color: #4b5566; }
+    .blk span { display: block; font-size: 11.5px; color: #68717f; margin-top: 2px; }
+    .num { position: absolute; top: -9px; left: 14px; width: 20px; height: 20px; border-radius: 50%;
+           background: #c93a3a; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+  </style>
+</helmet>
+
+<div style="display: flex; width: 1440px; height: 900px; overflow: hidden">
+
+  <!-- Sol menü: 12 madde -->
+  <div style="width: 238px; flex: none; background: #ffffff; border-right: 1px solid #e3e7ee; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 9px; padding: 16px 16px 12px">
+      <svg width="30" height="30" viewBox="0 0 100 100"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00AEEF"/><stop offset="1" stop-color="#004E92"/></linearGradient></defs><path fill="url(#lg2)" fill-rule="evenodd" d="M20 10h37c15.6 0 26 9.6 26 24 0 11.2-6.4 19.5-16.6 22.7L88 90H63.5L44.2 60.5H40V90H20V10zm20 17v17h16c6.4 0 10.6-3.3 10.6-8.5S62.4 27 56 27H40z"/></svg>
+      <span class="dsp" style="font-weight: 700; font-size: 16.5px; flex: 1">Rezervle</span>
+    </div>
+    <div style="padding: 4px 12px 0; display: flex; flex-direction: column; gap: 1px; flex: 1">
+      <div style="font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: #68717f; padding: 12px 8px 5px">GÜNLÜK İŞ</div>
+      <div style="padding: 8px; border-radius: 9px; background: #e7f1fa; color: #003a6e; font-size: 13.5px; font-weight: 620">Özet</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Takvim</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Rezervasyonlar</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Müşteriler</div>
+      <div style="font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: #68717f; padding: 12px 8px 5px">GELİR</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Ciro</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Kapora</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Paket &amp; Kredi</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Kampanya</div>
+      <div style="font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: #68717f; padding: 12px 8px 5px">SİSTEM</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Müşteri uygulaması</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Ayarlar</div>
+      <div style="padding: 8px; font-size: 13.5px; color: #4b5566">Paket ve fatura</div>
+    </div>
+    <div style="padding: 10px 14px; border-top: 1px solid #e3e7ee; font-size: 11.5px; color: #c93a3a; font-weight: 620">12 menü maddesi</div>
+  </div>
+
+  <!-- Ana alan: yoğunluk haritası -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 60px; flex: none; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid #e3e7ee; background: #ffffff">
+      <div style="flex: 1">
+        <h1 class="dsp" style="margin: 0; font-size: 17.5px; font-weight: 650">Özet</h1>
+        <div style="font-size: 12px; color: #68717f">İşletmenizin bugünkü durumu</div>
+      </div>
+      <span style="font-size: 12px; color: #c93a3a; font-weight: 620; background: #fdecec; padding: 5px 11px; border-radius: 999px">Tek ekranda 11 blok</span>
+    </div>
+
+    <div style="flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+
+      <div class="blk" style="background: #e7f1fa; border-color: #b9d6ee">
+        <span class="num">1</span>
+        <b>Demo bandı</b><span>Paket değiştirme çipleri · yavaş bağlantı anahtarı</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+        <div class="blk"><span class="num">2</span><b>Bugünkü ciro</b><span>4.410 ₺</span></div>
+        <div class="blk"><span class="num">3</span><b>Bugünkü rezervasyon</b><span>33</span></div>
+        <div class="blk"><span class="num">4</span><b>Bugünkü doluluk</b><span>%66</span></div>
+        <div class="blk"><span class="num">5</span><b>Gelmeyen müşteri</b><span>72.071 ₺</span></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+        <div class="blk"><span class="num">6</span><b>Onay bekliyor</b><span>64 rezervasyon + eylem düğmesi</span></div>
+        <div class="blk"><span class="num">7</span><b>Kapora tahsil edilebilir</b><span>13 kayıt + eylem düğmesi</span></div>
+        <div class="blk"><span class="num">8</span><b>Yarın boş aralık</b><span>14 aralık + eylem düğmesi</span></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; flex: 1">
+        <div class="blk" style="display: flex; flex-direction: column">
+          <span class="num">9</span>
+          <b>Bugünün akışı</b><span>33 satırlık liste</span>
+          <div style="flex: 1; margin-top: 10px; display: flex; flex-direction: column; gap: 6px">
+            <div style="height: 12px; background: #eef1f6; border-radius: 4px"></div>
+            <div style="height: 12px; background: #eef1f6; border-radius: 4px"></div>
+            <div style="height: 12px; background: #eef1f6; border-radius: 4px"></div>
+            <div style="height: 12px; background: #eef1f6; border-radius: 4px"></div>
+            <div style="height: 12px; background: #eef1f6; border-radius: 4px"></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div class="blk" style="flex: 1"><span class="num">10</span><b>Bu ay</b><span>Ciro + 4 alt istatistik + düğme</span></div>
+          <div class="blk"><b>SMS kotası</b><span>412 / 1.000</span></div>
+          <div class="blk" style="flex: 1"><span class="num">11</span><b>Son hareketler</b><span>8 satırlık işlem geçmişi</span></div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; height: 96px">
+        <div class="blk" style="opacity: .55"><b>Son 30 gün cirosu</b><span>Çizgi grafik — Ciro ekranında da var</span></div>
+        <div class="blk" style="opacity: .55"><b>Kanal dağılımı</b><span>Halka grafik — Ciro ekranında da var</span></div>
+      </div>
+
+      <div style="font-size: 12.5px; color: #68717f; line-height: 1.5">
+        Kırmızı numaralar birbirinden bağımsız bilgi bloklarını sayar. Alttaki iki grafik Ciro ekranında zaten var — burada ikinci kez duruyor.
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

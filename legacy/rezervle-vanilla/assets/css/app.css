@@ -1,0 +1,329 @@
+/* Rezervle — işletme uygulaması
+   Tasarim ilkesi: ARAYUZ RENKSIZ, RENK VERIYE AYRILMIS.
+   Secili/aktif durum murekkep siyahi; yesil yalnizca para, kirmizi yalnizca kayip
+   demektir. Boylece ekranda gordugun her renk bir bilgi tasir, sus degildir.
+   Kart yoktur: bolgeleri ince cizgi ve bosluk ayirir. */
+
+:root{
+  color-scheme:light;
+  /* Zemin — notr ama hafif sicak: gun boyu bakilan bir ekranda gozu yormaz */
+  --bg:#f6f5f3;
+  --surface:#ffffff;
+  --sunken:#eeecE8;
+  --sunken:#eeece8;
+  --line:#e3e0db;
+  --line-2:#d2cec7;
+
+  --ink:#17161a;
+  --ink-2:#54514c;
+  --ink-3:#726d66;
+
+  /* Veri renkleri — yalnizca anlam tasidiginda kullanilir */
+  --money:#0f7a4e;   --money-bg:#e7f2ec;
+  --loss:#b3271e;    --loss-bg:#fbeae8;
+  --warn:#8a6a15;    --warn-bg:#f7f0dd;
+  --info:#1f5f8b;    --info-bg:#e6eef4;
+
+  --focus:#17161a;
+  --r:6px;
+  --nav:216px;
+  --sans:"IBM Plex Sans","Segoe UI",-apple-system,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#141414;
+    --surface:#1b1b1c;
+    --sunken:#232324;
+    --line:#2c2c2e;
+    --line-2:#3a3a3d;
+    --ink:#f2f0ed;
+    --ink-2:#b6b2ac;
+    --ink-3:#8f8a83;
+    --money:#4fc98d;   --money-bg:#14352a;
+    --loss:#f0706a;    --loss-bg:#3a1f1d;
+    --warn:#dcae4d;    --warn-bg:#332a12;
+    --info:#6fb3dd;    --info-bg:#152935;
+    --focus:#f2f0ed;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#141414;
+  --surface:#1b1b1c;
+  --sunken:#232324;
+  --line:#2c2c2e;
+  --line-2:#3a3a3d;
+  --ink:#f2f0ed;
+  --ink-2:#b6b2ac;
+  --ink-3:#8f8a83;
+  --money:#4fc98d;   --money-bg:#14352a;
+  --loss:#f0706a;    --loss-bg:#3a1f1d;
+  --warn:#dcae4d;    --warn-bg:#332a12;
+  --info:#6fb3dd;    --info-bg:#152935;
+  --focus:#f2f0ed;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.011em;line-height:1.25}
+p{margin:0}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none;padding:0;text-align:left}
+ul{margin:0;padding:0;list-style:none}
+svg{display:block}
+:focus-visible{outline:2px solid var(--focus);outline-offset:1px;border-radius:3px}
+
+/* Her sayi, saat ve tutar mono ve hizali — sutunlar birbirini tutar */
+.n{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;letter-spacing:-.02em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.muted{color:var(--ink-3)}
+.dim{color:var(--ink-2)}
+.pos{color:var(--money)}
+.neg{color:var(--loss)}
+.row{display:flex;align-items:center;gap:10px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.grow{flex:1;min-width:0}
+.wrap{flex-wrap:wrap}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- Kabuk ---------- */
+.app{display:flex;min-height:100vh}
+
+.side{
+  width:var(--nav);flex:none;background:var(--surface);border-right:1px solid var(--line);
+  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+}
+.brand{display:flex;align-items:center;gap:9px;padding:16px 16px 14px;border-bottom:1px solid var(--line)}
+.brand .mk{width:24px;height:24px;flex:none}
+.brand b{font-size:15px;font-weight:600;letter-spacing:-.02em}
+.biz{padding:12px 16px;border-bottom:1px solid var(--line)}
+.biz .nm{font-size:13.5px;font-weight:550}
+.biz .sub{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+
+.nav{padding:8px;display:flex;flex-direction:column;gap:1px;flex:1}
+.nav a{
+  display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:var(--r);
+  font-size:13.5px;color:var(--ink-2);
+}
+.nav a:hover{background:var(--sunken);color:var(--ink)}
+.nav a.on{background:var(--ink);color:var(--surface);font-weight:550}
+.nav a .ct{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.nav a.on .ct{color:var(--surface);opacity:.7}
+.side-foot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:6px;align-items:center}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{
+  height:54px;flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;
+  border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:20;
+}
+.top h1{font-size:16px}
+.top .where{font-size:12px;color:var(--ink-3);font-family:var(--mono)}
+.body{flex:1;padding:20px;min-width:0}
+@media(max-width:860px){
+  .side{position:fixed;z-index:60;transform:translateX(-100%);transition:transform .2s ease}
+  .side.open{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.35)}
+  .body{padding:14px}
+  .top{padding:0 14px}
+}
+.burger{display:none}
+@media(max-width:860px){.burger{display:grid}}
+
+/* ---------- Kontroller ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;
+  border-radius:var(--r);border:1px solid var(--line-2);background:var(--surface);
+  font-size:13px;font-weight:500;white-space:nowrap;transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--sunken)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.btn.primary:hover{opacity:.88}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.quiet:hover{background:var(--sunken);color:var(--ink)}
+.btn.danger{border-color:transparent;background:var(--loss-bg);color:var(--loss)}
+.btn.danger:hover{background:var(--loss);color:#fff}
+.btn.sm{height:27px;padding:0 9px;font-size:12.5px}
+.btn.lg{height:38px;padding:0 16px;font-size:14px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.ico-btn{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--r);color:var(--ink-2);flex:none}
+.ico-btn:hover{background:var(--sunken);color:var(--ink)}
+@media (pointer:coarse){
+  .btn{height:42px;padding:0 15px}.btn.sm{height:38px}
+  .ico-btn{width:42px;height:42px}
+  .nav a{padding:11px 9px}
+}
+
+.inp,.sel{
+  height:32px;padding:0 9px;border:1px solid var(--line-2);border-radius:var(--r);
+  background:var(--surface);width:100%;font-size:13.5px;
+}
+.inp:focus,.sel:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px var(--sunken)}
+.sel{appearance:none;padding-right:26px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 14px) 14px,calc(100% - 9px) 14px;background-size:5px 5px;background-repeat:no-repeat}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld > label{font-size:12px;font-weight:550;color:var(--ink-2)}
+.hint{font-size:12px;color:var(--ink-3);line-height:1.45}
+
+/* Segment secici — sekmeler icin */
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.seg button{padding:6px 12px;font-size:12.5px;color:var(--ink-2);border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:var(--sunken)}
+.seg button.on{background:var(--ink);color:var(--surface);font-weight:550}
+
+/* Durum etiketi — dolgu yok, nokta + metin */
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);white-space:nowrap}
+.st i{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.st.ok{color:var(--money)}
+.st.bad{color:var(--loss)}
+.st.wait{color:var(--warn)}
+.st.live{color:var(--info)}
+
+/* ---------- Panel (kart degil: cizgiyle ayrilmis bolge) ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.panel > header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 14px;border-bottom:1px solid var(--line);
+}
+.panel > header h2{font-size:13.5px;font-weight:600}
+.panel > header .sub{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+.pad{padding:14px}
+
+/* ---------- Satir listesi ---------- */
+.rows > *{display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.rows > *:last-child{border-bottom:none}
+.rows > a:hover,.rows > button:hover,.rows > .clk:hover{background:var(--sunken)}
+.rows button{width:100%}
+
+/* ---------- Tablo ---------- */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{
+  text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-3);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.tbl td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr.clk{cursor:pointer}
+.tbl tbody tr.clk:hover{background:var(--sunken)}
+.tbl .r{text-align:right}
+.tbl-x{overflow-x:auto}
+.tbl tr.grp td{background:var(--sunken);font-size:11.5px;font-weight:600;color:var(--ink-2);padding:6px 12px}
+
+/* ---------- Sayi blogu (KPI degil: baslik + rakam) ---------- */
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border:1px solid var(--line);
+  border-radius:var(--r);background:var(--surface);overflow:hidden}
+.fig{padding:14px 16px;border-left:1px solid var(--line)}
+.fig:first-child{border-left:none}
+.fig .k{font-size:11.5px;color:var(--ink-3);letter-spacing:.01em}
+.fig .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:24px;font-weight:500;
+  letter-spacing:-.03em;margin-top:5px;line-height:1.1}
+.fig .d{font-size:11.5px;margin-top:4px;color:var(--ink-3);font-family:var(--mono)}
+.fig.lead .v{font-size:34px}
+.fig.lead{background:var(--sunken)}
+@media(max-width:700px){.fig{border-left:none;border-top:1px solid var(--line)}.fig:first-child{border-top:none}}
+
+/* ---------- Takvim ---------- */
+.cal-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.cal{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden}
+.cal-scroll{overflow:auto;max-height:calc(100vh - 190px)}
+.cal-grid{display:grid;min-width:max-content;position:relative}
+.cal-head{display:grid;position:sticky;top:0;z-index:6;background:var(--surface);border-bottom:1px solid var(--line)}
+.cal-head div{padding:8px 10px;border-left:1px solid var(--line);font-size:12.5px;font-weight:550}
+.cal-head div:first-child{border-left:none}
+.cal-head .s{font-size:11px;color:var(--ink-3);font-weight:400;font-family:var(--mono)}
+.cal-body{display:grid;position:relative}
+.hrs{border-right:1px solid var(--line);background:var(--bg);position:sticky;left:0;z-index:5}
+.hr{height:52px;font-family:var(--mono);font-size:11px;color:var(--ink-3);padding:2px 8px 0;text-align:right}
+.col{border-left:1px solid var(--line);position:relative}
+.cel{height:52px;border-bottom:1px solid var(--line);position:relative}
+.cel:hover{background:var(--sunken)}
+.cel::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dotted var(--line)}
+
+.ev{
+  position:absolute;left:3px;right:3px;border-radius:4px;padding:4px 7px;overflow:hidden;
+  font-size:12px;line-height:1.25;cursor:grab;user-select:none;z-index:2;
+  background:var(--surface);border:1px solid var(--line-2);border-left:3px solid var(--ink);
+  transition:box-shadow .12s;
+}
+.ev:hover{box-shadow:0 2px 8px rgba(0,0,0,.10);z-index:4}
+.ev .t{display:block;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .s{display:block;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Renk sol raydadir: blogun kendisi notr kalir, isim okunur.
+   Yalnizca "gelmedi" hafif bir zemin alir cunku o bir kayiptir. */
+.ev.pending{border-left-color:var(--warn)}
+.ev.here{border-left-color:var(--info)}
+.ev.done{border-left-color:var(--money)}
+.ev.noshow{border-left-color:var(--loss);background:var(--loss-bg);opacity:.8}
+.ev.noshow .t{text-decoration:line-through}
+.ev.drag{opacity:.9;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:grabbing;z-index:20}
+.ev.bump{animation:bump .3s}
+@keyframes bump{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.ghost{position:absolute;border:1.5px dashed var(--ink);background:var(--sunken);border-radius:4px;z-index:19;
+  pointer-events:none;display:grid;place-items:center;font-family:var(--mono);font-size:11.5px;font-weight:550}
+.ghost.no{border-color:var(--loss);background:var(--loss-bg);color:var(--loss)}
+.now{position:absolute;left:0;right:0;height:1px;background:var(--loss);z-index:5;pointer-events:none}
+.now::before{content:"";position:absolute;left:0;top:-2.5px;width:6px;height:6px;border-radius:50%;background:var(--loss)}
+
+/* ---------- Grafik ---------- */
+.bars{display:flex;align-items:flex-end;gap:2px;height:140px}
+.bars > div{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.bars i{display:block;background:var(--money);border-radius:2px 2px 0 0;transition:opacity .12s}
+.bars i.soft{opacity:.28}
+.bars > div:hover i{opacity:.65}
+.axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:6px}
+.meter{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:99px;background:var(--ink)}
+
+/* ---------- Katmanlar ---------- */
+.scrim{position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:100}
+.sheet{
+  position:fixed;z-index:101;right:0;top:0;bottom:0;width:min(420px,100vw);
+  background:var(--surface);border-left:1px solid var(--line);display:flex;flex-direction:column;
+  animation:sheetIn .18s ease;
+}
+@keyframes sheetIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
+.sheet > header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:14px 16px;border-bottom:1px solid var(--line)}
+.sheet > header h2{font-size:15px}
+.sheet .body-s{padding:16px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:14px}
+.sheet > footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+
+.dlg{
+  position:fixed;z-index:101;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(540px,calc(100vw - 28px));max-height:calc(100vh - 60px);display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--line-2);border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,.28);
+  animation:dlgIn .16s ease;overflow:hidden;
+}
+@keyframes dlgIn{from{opacity:0;transform:translate(-50%,-47%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.dlg > header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px 10px}
+.dlg > header h2{font-size:15px}
+.dlg .body-s{padding:0 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.dlg > footer{padding:12px 16px;border-top:1px solid var(--line);background:var(--bg);display:flex;gap:8px;justify-content:flex-end}
+
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:120;display:flex;
+  flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--ink);color:var(--surface);padding:9px 14px;border-radius:var(--r);font-size:13px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);animation:tIn .18s ease;max-width:min(90vw,440px)}
+.toast.bad{background:var(--loss)}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- Bos / hata ---------- */
+.empty{padding:34px 20px;text-align:center;color:var(--ink-3);display:flex;flex-direction:column;
+  align-items:center;gap:8px}
+.empty b{color:var(--ink-2);font-weight:600;font-size:14px}
+.empty p{font-size:13px;max-width:340px;line-height:1.5}
+
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:3px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+
+@media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}

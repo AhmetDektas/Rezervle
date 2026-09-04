@@ -1,0 +1,17 @@
+{
+  "name": "Rezzerv — Randevu",
+  "short_name": "Rezzerv",
+  "description": "Diş, güzellik ve estetik işletmelerinde anında randevu.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F8FC",
+  "theme_color": "#176BFF",
+  "lang": "tr",
+  "dir": "ltr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

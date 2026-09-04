@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, "Segoe UI", Arial, sans-serif; background: #f5f6f9; color: #111726; -webkit-font-smoothing: antialiased; }
+    a { color: #004e92; } a:hover { color: #003a6e; }
+    .dsp { font-family: "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.025em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<div style="display: flex; width: 1440px; height: 900px; overflow: hidden">
+
+  <!-- Sol menü: 12 madde -> 5 -->
+  <div style="width: 238px; flex: none; background: #ffffff; border-right: 1px solid #e3e7ee; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 9px; padding: 16px 16px 12px">
+      <svg width="30" height="30" viewBox="0 0 100 100"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00AEEF"/><stop offset="1" stop-color="#004E92"/></linearGradient></defs><path fill="url(#lg1)" fill-rule="evenodd" d="M20 10h37c15.6 0 26 9.6 26 24 0 11.2-6.4 19.5-16.6 22.7L88 90H63.5L44.2 60.5H40V90H20V10zm20 17v17h16c6.4 0 10.6-3.3 10.6-8.5S62.4 27 56 27H40z"/></svg>
+      <span class="dsp" style="font-weight: 700; font-size: 16.5px; flex: 1">Rezervle</span>
+      <span style="font-size: 10px; font-weight: 650; color: #003a6e; background: #e7f1fa; padding: 2px 6px; border-radius: 5px; letter-spacing: .04em">PANEL</span>
+    </div>
+
+    <button style="margin: 2px 12px 14px; padding: 9px 11px; border-radius: 12px; background: #f9fafc; border: 1px solid #e3e7ee; display: flex; align-items: center; gap: 9px; width: 214px; text-align: left; cursor: pointer">
+      <span style="width: 30px; height: 30px; border-radius: 9px; background: #e7f1fa; display: grid; place-items: center; flex: none; font-size: 14px">GS</span>
+      <span style="flex: 1; min-width: 0">
+        <span style="display: block; font-size: 13.5px; font-weight: 620; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Gülveren Spor Te…</span>
+        <span style="display: block; font-size: 11px; color: #68717f; line-height: 1.3">Mamak · Pro</span>
+      </span>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#68717f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+
+    <div style="flex: 1; padding: 0 10px; display: flex; flex-direction: column; gap: 2px">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; background: #e7f1fa; color: #003a6e; font-size: 14px; font-weight: 620">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 9h16M8 3v4M16 3v4"/></svg>
+        <span style="flex: 1">Bugün</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>
+        <span style="flex: 1">Takvim</span>
+        <span style="font-size: 11px; font-weight: 650; background: #eef1f6; color: #4b5566; padding: 1px 7px; border-radius: 99px">33</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M12 7a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0M17 11a2.5 2.5 0 1 0 0-5M21 19v-1a3.5 3.5 0 0 0-2.5-3.3"/></svg>
+        <span style="flex: 1">Müşteriler</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 15l3.5-4 3 2.5L20 8"/></svg>
+        <span style="flex: 1">Ciro</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3H9.8l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1c.6.5 1.3.9 2 1.2l.4 2.7h4.4l.4-2.7c.7-.3 1.4-.7 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>
+        <span style="flex: 1">Ayarlar</span>
+      </div>
+    </div>
+
+    <div style="border-top: 1px solid #e3e7ee; padding: 11px 12px">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 12px; background: #f9fafc; border: 1px solid #e3e7ee">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#004e92" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l2.4 5 5.6.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.6-.8z"/></svg>
+        <span style="flex: 1; min-width: 0">
+          <span style="display: block; font-size: 12.5px; font-weight: 650">Rezervle Pro</span>
+          <span style="display: block; font-size: 11px; color: #68717f">2.500 ₺ / ay</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ana alan -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 60px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid #e3e7ee; background: #ffffff">
+      <div style="flex: 1">
+        <h1 class="dsp" style="margin: 0; font-size: 17.5px; font-weight: 650">Bugün</h1>
+        <div style="font-size: 12px; color: #68717f">28 Ağustos 2026, Cuma</div>
+      </div>
+      <div style="width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: #4b5566">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+      </div>
+      <button style="height: 38px; padding: 0 16px; border-radius: 10px; background: #004e92; color: #ffffff; border: none; font-size: 14px; font-weight: 560; font-family: inherit; display: inline-flex; align-items: center; gap: 7px; cursor: pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Rezervasyon
+      </button>
+    </div>
+
+    <div style="flex: 1; padding: 22px 24px; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 18px; align-content: start; overflow: hidden">
+
+      <!-- 1. Tek sayı kartı: dört KPI kartı yerine bir kart -->
+      <div style="grid-column: 1 / -1; background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; box-shadow: 0 1px 2px rgba(17,23,38,.06), 0 1px 3px rgba(17,23,38,.04); padding: 22px 26px; display: flex; align-items: center; gap: 40px">
+        <div style="flex: none">
+          <div style="font-size: 12.5px; color: #68717f; font-weight: 550">Bugünkü ciro</div>
+          <div class="tnum" style="font-size: 46px; font-weight: 680; letter-spacing: -.03em; color: #0a7d56; line-height: 1.05; margin-top: 4px">4.410 ₺</div>
+          <div style="font-size: 13px; font-weight: 600; color: #c93a3a; margin-top: 6px; display: flex; align-items: center; gap: 6px">
+            ▼ %5,5 <span style="color: #68717f; font-weight: 500">düne göre</span>
+          </div>
+        </div>
+        <div style="width: 1px; align-self: stretch; background: #e3e7ee"></div>
+        <div style="flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px">
+          <div>
+            <div style="font-size: 12px; color: #68717f">Rezervasyon</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px">33</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #68717f">Doluluk</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px">%66</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #68717f">Gelmeyen (bu ay)</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px; color: #c93a3a">72.071 ₺</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Günün akışı: ekranın asıl işi, en çok yeri o alıyor -->
+      <div style="background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; box-shadow: 0 1px 2px rgba(17,23,38,.06), 0 1px 3px rgba(17,23,38,.04); overflow: hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; border-bottom: 1px solid #e3e7ee">
+          <h3 class="dsp" style="margin: 0; font-size: 15.5px; font-weight: 650">Bugünün akışı</h3>
+          <span style="font-size: 12.5px; color: #68717f">33 rezervasyon</span>
+        </div>
+        <div style="display: flex; flex-direction: column">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #e3e7ee; background: #f9fafc">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #e7f1fa; color: #003a6e; padding: 4px 9px; border-radius: 7px">10:30</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Murat Kılıç</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Halı Saha · 1,5 Saat · 1. Saha</span>
+            </span>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">1.105 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #e2f4f8; color: #0e8ba1"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Geldi</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #e3e7ee">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #eef1f6; padding: 4px 9px; border-radius: 7px">11:30</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Seda Yavuz</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Halı Saha · 1 Saat · Kapalı Saha</span>
+            </span>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">900 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #fdf3e2; color: #9c6109"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Onay bekliyor</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #e3e7ee">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #eef1f6; padding: 4px 9px; border-radius: 7px">12:00</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Selin Kurt</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Halı Saha · 1 Saat · 1. Saha</span>
+            </span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6d4ac7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6z"/></svg>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">900 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #e7f1fa; color: #003a6e"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Onaylandı</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #e3e7ee">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #eef1f6; padding: 4px 9px; border-radius: 7px">12:30</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Hakan Tekin</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Halı Saha · 1,5 Saat · 2. Saha</span>
+            </span>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">1.300 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #e7f1fa; color: #003a6e"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Onaylandı</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid #e3e7ee">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #eef1f6; padding: 4px 9px; border-radius: 7px">14:00</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Kadıköy United</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Tenis Kortu · 1 Saat · Tenis Kortu</span>
+            </span>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">450 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #e7f1fa; color: #003a6e"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Onaylandı</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 13px 20px">
+            <span class="tnum" style="font-size: 12.5px; font-weight: 650; background: #eef1f6; padding: 4px 9px; border-radius: 7px">18:00</span>
+            <span style="flex: 1; min-width: 0">
+              <span style="display: block; font-size: 14px; font-weight: 600">Gece Vardiyası</span>
+              <span style="display: block; font-size: 12px; color: #68717f">Halı Saha · 1,5 Saat · 1. Saha</span>
+            </span>
+            <span class="tnum" style="font-size: 13.5px; font-weight: 640">1.430 ₺</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: #e7f1fa; color: #003a6e"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>Onaylandı</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Sağ sütun: tek iş — bugün ne yapman gerekiyor -->
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <div style="background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; box-shadow: 0 1px 2px rgba(17,23,38,.06), 0 1px 3px rgba(17,23,38,.04); padding: 18px 20px">
+          <h3 class="dsp" style="margin: 0 0 14px; font-size: 15.5px; font-weight: 650">Bugün ne yapmalısın</h3>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid #e3e7ee">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9c6109" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5.2l3.2 2"/></svg>
+              <span style="flex: 1; font-size: 14px">64 rezervasyon onay bekliyor</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#68717f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid #e3e7ee">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d4ac7" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6z"/></svg>
+              <span style="flex: 1; font-size: 14px">13 kapora tahsil edilebilir <span style="color: #68717f">· 2.700 ₺</span></span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#68717f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: 11px; padding: 11px 0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#004e92" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M4 10v4a1 1 0 0 0 1 1h3l6 4V5L8 9H5a1 1 0 0 0-1 1zM17 9a4 4 0 0 1 0 6"/></svg>
+              <span style="flex: 1; font-size: 14px">Yarın 14 saat boş</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#68717f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; box-shadow: 0 1px 2px rgba(17,23,38,.06), 0 1px 3px rgba(17,23,38,.04); padding: 18px 20px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px">
+            <h3 class="dsp" style="margin: 0; font-size: 15.5px; font-weight: 650">Bu ay</h3>
+            <span style="font-size: 12px; color: #68717f">Ağustos</span>
+          </div>
+          <div class="tnum" style="font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: #0a7d56">642.391 ₺</div>
+          <div style="font-size: 12.5px; margin-top: 3px; display: flex; gap: 6px">
+            <span style="color: #c93a3a; font-weight: 620">▼ %8,3</span>
+            <span style="color: #68717f">geçen ayın aynı dönemine göre</span>
+          </div>
+          <svg viewBox="0 0 300 64" style="width: 100%; height: 64px; margin-top: 14px" role="img" aria-label="Son 30 günün ciro seyri">
+            <path d="M0,44 L20,38 L40,41 L60,30 L80,34 L100,22 L120,28 L140,18 L160,26 L180,14 L200,22 L220,12 L240,20 L260,10 L280,18 L300,26 L300,64 L0,64 Z" fill="#0a7d56" opacity=".10"/>
+            <path d="M0,44 L20,38 L40,41 L60,30 L80,34 L100,22 L120,28 L140,18 L160,26 L180,14 L200,22 L220,12 L240,20 L260,10 L280,18 L300,26" fill="none" stroke="#0a7d56" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          <a href="#" style="display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13.5px; font-weight: 600; text-decoration: none">
+            Ciro raporunu aç
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

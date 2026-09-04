@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, "Segoe UI", Arial, sans-serif; background: #f5f6f9; color: #111726; -webkit-font-smoothing: antialiased; }
+    a { color: #004e92; } a:hover { color: #003a6e; }
+    .dsp { font-family: "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.03em; }
+    .serif { font-family: "Source Serif 4", Georgia, serif; }
+    .tnum { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<div style="width: 1440px; height: 1120px; overflow: hidden; position: relative; background: #f5f6f9">
+
+  <div style="position: absolute; top: -300px; left: 50%; transform: translateX(-50%); width: 1100px; height: 600px; background: radial-gradient(closest-side, rgba(0,174,239,.20), rgba(0,174,239,0)); pointer-events: none"></div>
+
+  <!-- Üst menü: tek buton işletmeye gider -->
+  <div style="position: relative; height: 64px; display: flex; align-items: center; gap: 26px; padding: 0 60px; border-bottom: 1px solid rgba(227,231,238,0)">
+    <div style="display: flex; align-items: center; gap: 9px">
+      <svg width="31" height="31" viewBox="0 0 100 100"><defs><linearGradient id="lg4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00AEEF"/><stop offset="1" stop-color="#004E92"/></linearGradient></defs><path fill="url(#lg4)" fill-rule="evenodd" d="M20 10h37c15.6 0 26 9.6 26 24 0 11.2-6.4 19.5-16.6 22.7L88 90H63.5L44.2 60.5H40V90H20V10zm20 17v17h16c6.4 0 10.6-3.3 10.6-8.5S62.4 27 56 27H40z"/></svg>
+      <span class="dsp" style="font-weight: 700; font-size: 19px">Rezervle</span>
+    </div>
+    <div style="display: flex; gap: 22px; margin-left: 14px">
+      <span style="font-size: 14px; color: #4b5566; font-weight: 520">Nasıl çalışır</span>
+      <span style="font-size: 14px; color: #4b5566; font-weight: 520">Neler var</span>
+      <span style="font-size: 14px; color: #4b5566; font-weight: 520">Sorular</span>
+    </div>
+    <div style="flex: 1"></div>
+    <div style="width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: #4b5566">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+    </div>
+    <!-- İşletmeye giden tek yol: bu düğme. Ayrı pazarlama sayfası yok. -->
+    <button style="height: 34px; padding: 0 14px; border-radius: 8px; background: #ffffff; border: 1px solid #e3e7ee; font-size: 13px; font-weight: 560; font-family: inherit; color: #111726; display: inline-flex; align-items: center; gap: 7px; cursor: pointer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#004e92" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15M13 10h6a1 1 0 0 1 1 1v10M7 9h3M7 13h3M7 17h3M3 21h18"/></svg>
+      İşletme girişi
+    </button>
+    <button style="height: 34px; padding: 0 15px; border-radius: 8px; background: #004e92; color: #ffffff; border: none; font-size: 13px; font-weight: 560; font-family: inherit; cursor: pointer">Uygulamayı aç</button>
+  </div>
+
+  <!-- Kahraman -->
+  <div style="position: relative; padding: 56px 60px 0; display: grid; grid-template-columns: minmax(0, 1.05fr) 360px; gap: 48px; align-items: center">
+    <div>
+      <div style="display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #003a6e; background: #e7f1fa; border: 1px solid #b9d6ee; padding: 5px 12px; border-radius: 99px; margin-bottom: 20px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>
+        Ankara’da halı saha, kort, kuaför ve güzellik salonu
+      </div>
+      <h1 class="dsp" style="margin: 0; font-size: 58px; line-height: 1.06; font-weight: 700">
+        Aramaya son.<br><span style="color: #004e92">Boş saati gör</span>, dokun, yerini ayır.
+      </h1>
+      <p class="serif" style="margin: 20px 0 0; font-size: 20px; line-height: 1.6; color: #4b5566; max-width: 620px">
+        Rezervle’de işletmenin gerçek takvimini görürsün. Dolu saatler zaten karşına çıkmaz — seçtiğin saat anında senin olur. “Bu akşam boş yer var mı?” diye aramak yok.
+      </p>
+      <div style="display: flex; gap: 11px; margin-top: 28px">
+        <button style="height: 46px; padding: 0 22px; border-radius: 12px; background: #004e92; color: #ffffff; border: none; font-size: 15.5px; font-weight: 560; font-family: inherit; display: inline-flex; align-items: center; gap: 8px; cursor: pointer">
+          Uygulamayı aç
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button style="height: 46px; padding: 0 22px; border-radius: 12px; background: #ffffff; border: 1px solid #e3e7ee; font-size: 15.5px; font-weight: 560; font-family: inherit; color: #111726; cursor: pointer">Nasıl çalışır</button>
+      </div>
+      <div style="display: flex; gap: 18px; margin-top: 16px; font-size: 12.5px; color: #68717f; flex-wrap: wrap">
+        <span style="display: flex; align-items: center; gap: 6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0a7d56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Ücretsiz</span>
+        <span style="display: flex; align-items: center; gap: 6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0a7d56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Üyelik zorunlu değil</span>
+        <span style="display: flex; align-items: center; gap: 6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0a7d56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Anında onay</span>
+      </div>
+    </div>
+
+    <!-- Telefon -->
+    <div style="display: flex; justify-content: center">
+      <div style="width: 330px; border-radius: 36px; border: 1px solid #cfd6e2; background: #ffffff; box-shadow: 0 18px 48px rgba(17,23,38,.16), 0 2px 8px rgba(17,23,38,.08); padding: 10px; position: relative">
+        <div style="position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 96px; height: 20px; border-radius: 99px; background: #eef1f6; z-index: 3"></div>
+        <div style="border-radius: 28px; overflow: hidden; background: #f5f6f9; height: 520px; display: flex; flex-direction: column">
+          <div style="padding: 26px 16px 12px; background: #ffffff; border-bottom: 1px solid #e3e7ee; flex: none; display: flex; align-items: center; gap: 8px">
+            <svg width="26" height="26" viewBox="0 0 100 100"><defs><linearGradient id="lg5" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00AEEF"/><stop offset="1" stop-color="#004E92"/></linearGradient></defs><path fill="url(#lg5)" fill-rule="evenodd" d="M20 10h37c15.6 0 26 9.6 26 24 0 11.2-6.4 19.5-16.6 22.7L88 90H63.5L44.2 60.5H40V90H20V10zm20 17v17h16c6.4 0 10.6-3.3 10.6-8.5S62.4 27 56 27H40z"/></svg>
+            <div style="flex: 1">
+              <div style="font-weight: 680; font-size: 14px; letter-spacing: -.02em">Rezervle</div>
+              <div style="font-size: 10.5px; color: #68717f">Ankara · yakınımdakiler</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#68717f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"/></svg>
+          </div>
+          <div style="flex: 1; padding: 12px 14px; overflow: hidden">
+            <div style="display: flex; gap: 8px; margin-bottom: 12px">
+              <span style="padding: 7px 13px; border-radius: 999px; background: #004e92; color: #fff; font-size: 12px; font-weight: 560">Tümü</span>
+              <span style="padding: 7px 13px; border-radius: 999px; border: 1px solid #e3e7ee; background: #fff; color: #4b5566; font-size: 12px; font-weight: 560">Halı saha</span>
+              <span style="padding: 7px 13px; border-radius: 999px; border: 1px solid #e3e7ee; background: #fff; color: #4b5566; font-size: 12px; font-weight: 560">Güzellik</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin-bottom: 12px">
+              <span class="tnum" style="min-width: 48px; padding: 6px 4px; border-radius: 10px; background: #004e92; color: #fff; text-align: center"><span style="display: block; font-size: 10px; opacity: .8">Bugün</span><span style="display: block; font-size: 13px; font-weight: 620">28</span></span>
+              <span class="tnum" style="min-width: 48px; padding: 6px 4px; border-radius: 10px; border: 1px solid #e3e7ee; text-align: center"><span style="display: block; font-size: 10px; color: #68717f">Cmt</span><span style="display: block; font-size: 13px; font-weight: 620">29</span></span>
+              <span class="tnum" style="min-width: 48px; padding: 6px 4px; border-radius: 10px; border: 1px solid #e3e7ee; text-align: center"><span style="display: block; font-size: 10px; color: #68717f">Paz</span><span style="display: block; font-size: 13px; font-weight: 620">30</span></span>
+              <span class="tnum" style="min-width: 48px; padding: 6px 4px; border-radius: 10px; border: 1px solid #e3e7ee; text-align: center"><span style="display: block; font-size: 10px; color: #68717f">Pzt</span><span style="display: block; font-size: 13px; font-weight: 620">31</span></span>
+            </div>
+            <div style="border: 1px solid #e3e7ee; border-radius: 16px; overflow: hidden; background: #fff; margin-bottom: 11px">
+              <div style="height: 82px; background: linear-gradient(135deg,#0e8ba1,#0a7d56); display: flex; align-items: flex-end; padding: 9px 11px">
+                <span style="color: #fff; font-weight: 670; font-size: 14px; text-shadow: 0 1px 6px rgba(0,0,0,.35)">Gülveren Spor Tesisleri</span>
+              </div>
+              <div style="padding: 9px 11px; display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 650; padding: 3px 8px; border-radius: 999px; background: #e3f7ef; color: #0a7d56"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>4 sahadan 3’i boş</span>
+                <span style="font-size: 11.5px; font-weight: 650; color: #4b5566">★ 4.7</span>
+                <span style="font-size: 11px; color: #68717f">Mamak</span>
+              </div>
+            </div>
+            <div style="border: 1px solid #e3e7ee; border-radius: 16px; overflow: hidden; background: #fff">
+              <div style="height: 82px; background: linear-gradient(135deg,#6d4ac7,#c93a3a); display: flex; align-items: flex-end; padding: 9px 11px">
+                <span style="color: #fff; font-weight: 670; font-size: 14px; text-shadow: 0 1px 6px rgba(0,0,0,.35)">Cinnah Güzellik &amp; Bakım</span>
+              </div>
+              <div style="padding: 9px 11px; display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 650; padding: 3px 8px; border-radius: 999px; background: #fdf3e2; color: #9c6109"><i style="width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: block"></i>3 koltuktan 1’i boş</span>
+                <span style="font-size: 11.5px; font-weight: 650; color: #4b5566">★ 4.9</span>
+                <span style="font-size: 11px; color: #68717f">Çankaya</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #e3e7ee; background: #fff; flex: none">
+            <div style="padding: 9px 0 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 560; color: #004e92">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"/></svg>
+              Keşfet
+            </div>
+            <div style="padding: 9px 0 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 560; color: #68717f">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM4 9h16M8 3v4M16 3v4"/></svg>
+              Rezervasyonlar
+            </div>
+            <div style="padding: 9px 0 11px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 560; color: #68717f">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M12 7a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0"/></svg>
+              Profil
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dört adım -->
+  <div style="position: relative; padding: 64px 60px 0">
+    <div style="font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #004e92; margin-bottom: 11px">Nasıl çalışır</div>
+    <h2 class="dsp" style="margin: 0 0 28px; font-size: 34px; font-weight: 650">Dört adım, hepsi telefonundan</h2>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #e3e7ee">
+      <div style="padding: 22px 22px 0; border-right: 1px solid #e3e7ee">
+        <div style="font-size: 11.5px; font-weight: 700; letter-spacing: .1em; color: #004e92; margin-bottom: 12px">01</div>
+        <h3 class="dsp" style="margin: 0 0 7px; font-size: 16px; font-weight: 640">Yakınındakileri gör</h3>
+        <p class="serif" style="margin: 0; font-size: 14px; color: #4b5566; line-height: 1.6">O gün gerçekten kaç yer boş, kartta yazar.</p>
+      </div>
+      <div style="padding: 22px 22px 0; border-right: 1px solid #e3e7ee">
+        <div style="font-size: 11.5px; font-weight: 700; letter-spacing: .1em; color: #004e92; margin-bottom: 12px">02</div>
+        <h3 class="dsp" style="margin: 0 0 7px; font-size: 16px; font-weight: 640">Saatini seç</h3>
+        <p class="serif" style="margin: 0; font-size: 14px; color: #4b5566; line-height: 1.6">Dolu saatler tıklanamaz. Seçtiğin an senindir.</p>
+      </div>
+      <div style="padding: 22px 22px 0; border-right: 1px solid #e3e7ee">
+        <div style="font-size: 11.5px; font-weight: 700; letter-spacing: .1em; color: #004e92; margin-bottom: 12px">03</div>
+        <h3 class="dsp" style="margin: 0 0 7px; font-size: 16px; font-weight: 640">Ad ve telefon</h3>
+        <p class="serif" style="margin: 0; font-size: 14px; color: #4b5566; line-height: 1.6">Üyelik yok. Numaran SMS ile doğrulanır.</p>
+      </div>
+      <div style="padding: 22px 22px 0">
+        <div style="font-size: 11.5px; font-weight: 700; letter-spacing: .1em; color: #004e92; margin-bottom: 12px">04</div>
+        <h3 class="dsp" style="margin: 0 0 7px; font-size: 16px; font-weight: 640">Git</h3>
+        <p class="serif" style="margin: 0; font-size: 14px; color: #4b5566; line-height: 1.6">Hatırlatma gelir, girişte QR okutursun.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, "Segoe UI", Arial, sans-serif; background: #f5f6f9; color: #111726; -webkit-font-smoothing: antialiased; }
+    a { color: #004e92; } a:hover { color: #003a6e; }
+    .dsp { font-family: "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.025em; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .card { background: #ffffff; border: 1px solid #e3e7ee; border-radius: 16px; box-shadow: 0 1px 2px rgba(17,23,38,.06), 0 1px 3px rgba(17,23,38,.04); }
+  </style>
+</helmet>
+
+<div style="display: flex; width: 1440px; height: 900px; overflow: hidden">
+
+  <div style="width: 238px; flex: none; background: #ffffff; border-right: 1px solid #e3e7ee; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 9px; padding: 16px 16px 12px">
+      <svg width="30" height="30" viewBox="0 0 100 100"><defs><linearGradient id="lg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00AEEF"/><stop offset="1" stop-color="#004E92"/></linearGradient></defs><path fill="url(#lg3)" fill-rule="evenodd" d="M20 10h37c15.6 0 26 9.6 26 24 0 11.2-6.4 19.5-16.6 22.7L88 90H63.5L44.2 60.5H40V90H20V10zm20 17v17h16c6.4 0 10.6-3.3 10.6-8.5S62.4 27 56 27H40z"/></svg>
+      <span class="dsp" style="font-weight: 700; font-size: 16.5px; flex: 1">Rezervle</span>
+      <span style="font-size: 10px; font-weight: 650; color: #003a6e; background: #e7f1fa; padding: 2px 6px; border-radius: 5px; letter-spacing: .04em">PANEL</span>
+    </div>
+    <div style="flex: 1; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px">
+      <div style="padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">Bugün</div>
+      <div style="padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">Takvim</div>
+      <div style="padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">Müşteriler</div>
+      <div style="padding: 10px; border-radius: 10px; background: #e7f1fa; color: #003a6e; font-size: 14px; font-weight: 620">Ciro</div>
+      <div style="padding: 10px; border-radius: 10px; color: #4b5566; font-size: 14px; font-weight: 530">Ayarlar</div>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 60px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 24px; border-bottom: 1px solid #e3e7ee; background: #ffffff">
+      <h1 class="dsp" style="margin: 0; font-size: 17.5px; font-weight: 650; flex: 1">Ciro</h1>
+      <div style="display: inline-flex; background: #eef1f6; border-radius: 10px; padding: 3px">
+        <span style="padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 560; color: #4b5566">Hafta</span>
+        <span style="padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 620; background: #ffffff; color: #111726; box-shadow: 0 1px 2px rgba(17,23,38,.06)">Ay</span>
+        <span style="padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 560; color: #4b5566">90 gün</span>
+      </div>
+    </div>
+
+    <!-- Kapora / Paket / Kampanya artık ayrı menü maddesi değil, burada sekme -->
+    <div style="flex: none; padding: 0 24px; border-bottom: 1px solid #e3e7ee; background: #ffffff; display: flex; gap: 26px">
+      <div style="padding: 13px 0; font-size: 14px; font-weight: 620; color: #003a6e; box-shadow: inset 0 -2px 0 #004e92">Genel</div>
+      <div style="padding: 13px 0; font-size: 14px; font-weight: 530; color: #4b5566; display: flex; align-items: center; gap: 7px">
+        Kapora
+        <span style="font-size: 11px; font-weight: 650; background: #fdecec; color: #c93a3a; padding: 1px 7px; border-radius: 99px">13</span>
+      </div>
+      <div style="padding: 13px 0; font-size: 14px; font-weight: 530; color: #4b5566">Paket &amp; kredi</div>
+      <div style="padding: 13px 0; font-size: 14px; font-weight: 530; color: #4b5566">Kampanya</div>
+    </div>
+
+    <div style="flex: 1; padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; overflow: hidden">
+
+      <div class="card" style="padding: 22px 26px; display: flex; align-items: center; gap: 40px">
+        <div style="flex: none">
+          <div style="font-size: 12.5px; color: #68717f; font-weight: 550">Ağustos 2026 · gerçekleşen ciro</div>
+          <div class="tnum" style="font-size: 46px; font-weight: 680; letter-spacing: -.03em; color: #0a7d56; line-height: 1.05; margin-top: 4px">642.391 ₺</div>
+          <div style="font-size: 13px; font-weight: 600; color: #c93a3a; margin-top: 6px; display: flex; gap: 6px">
+            ▼ %8,3 <span style="color: #68717f; font-weight: 500">geçen ayın aynı dönemine göre</span>
+          </div>
+        </div>
+        <div style="width: 1px; align-self: stretch; background: #e3e7ee"></div>
+        <div style="flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px">
+          <div>
+            <div style="font-size: 12px; color: #68717f">Tamamlanan</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px">645</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #68717f">Ortalama fiş</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px">996 ₺</div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: #68717f">Doluluk</div>
+            <div class="tnum" style="font-size: 24px; font-weight: 660; margin-top: 2px">%48</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="flex: 1; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid #e3e7ee">
+          <h3 class="dsp" style="margin: 0; font-size: 15.5px; font-weight: 650">Günlük ciro</h3>
+          <div style="display: flex; gap: 16px; font-size: 12px; color: #4b5566">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 10px; height: 10px; border-radius: 3px; background: #0a7d56; display: block"></i>Gerçekleşen</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><i style="width: 10px; height: 10px; border-radius: 3px; background: #0a7d56; opacity: .35; display: block"></i>Bekleyen</span>
+          </div>
+        </div>
+        <div style="flex: 1; padding: 18px 20px">
+          <svg viewBox="0 0 1080 250" style="width: 100%; height: 100%" preserveAspectRatio="none" role="img" aria-label="Ağustos ayı günlük ciro; en yüksek 8 Ağustos, son üç gün bekleyen rezervasyon">
+            <line x1="0" y1="20" x2="1080" y2="20" stroke="#e3e7ee"/>
+            <line x1="0" y1="77" x2="1080" y2="77" stroke="#e3e7ee"/>
+            <line x1="0" y1="134" x2="1080" y2="134" stroke="#e3e7ee"/>
+            <line x1="0" y1="191" x2="1080" y2="191" stroke="#e3e7ee"/>
+            <line x1="0" y1="248" x2="1080" y2="248" stroke="#cfd6e2"/>
+            <g fill="#0a7d56">
+              <rect x="6" y="96" width="22" height="152" rx="3"/><rect x="41" y="62" width="22" height="186" rx="3"/>
+              <rect x="76" y="110" width="22" height="138" rx="3"/><rect x="111" y="118" width="22" height="130" rx="3"/>
+              <rect x="146" y="104" width="22" height="144" rx="3"/><rect x="181" y="88" width="22" height="160" rx="3"/>
+              <rect x="216" y="44" width="22" height="204" rx="3"/><rect x="251" y="112" width="22" height="136" rx="3"/>
+              <rect x="286" y="146" width="22" height="102" rx="3"/><rect x="321" y="124" width="22" height="124" rx="3"/>
+              <rect x="356" y="98" width="22" height="150" rx="3"/><rect x="391" y="132" width="22" height="116" rx="3"/>
+              <rect x="426" y="158" width="22" height="90" rx="3"/><rect x="461" y="120" width="22" height="128" rx="3"/>
+              <rect x="496" y="106" width="22" height="142" rx="3"/><rect x="531" y="70" width="22" height="178" rx="3"/>
+              <rect x="566" y="126" width="22" height="122" rx="3"/><rect x="601" y="140" width="22" height="108" rx="3"/>
+              <rect x="636" y="114" width="22" height="134" rx="3"/><rect x="671" y="92" width="22" height="156" rx="3"/>
+              <rect x="706" y="130" width="22" height="118" rx="3"/><rect x="741" y="60" width="22" height="188" rx="3"/>
+              <rect x="776" y="102" width="22" height="146" rx="3"/><rect x="811" y="150" width="22" height="98" rx="3"/>
+              <rect x="846" y="118" width="22" height="130" rx="3"/><rect x="881" y="86" width="22" height="162" rx="3"/>
+              <rect x="916" y="108" width="22" height="140" rx="3"/><rect x="951" y="196" width="22" height="52" rx="3"/>
+            </g>
+            <g fill="#0a7d56" opacity=".35">
+              <rect x="986" y="104" width="22" height="144" rx="3"/><rect x="1021" y="90" width="22" height="158" rx="3"/>
+              <rect x="1056" y="140" width="22" height="108" rx="3"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; height: 210px">
+        <div class="card" style="padding: 18px 20px; display: flex; flex-direction: column">
+          <h3 class="dsp" style="margin: 0 0 14px; font-size: 15.5px; font-weight: 650">Ne kazandırdı</h3>
+          <div style="display: flex; flex-direction: column; gap: 11px">
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 5px">
+                <span>Halı Saha · 1,5 Saat</span><span class="tnum" style="font-weight: 620">286.400 ₺</span>
+              </div>
+              <div style="height: 8px; border-radius: 99px; background: #eef1f6"><span style="display: block; height: 100%; width: 100%; border-radius: 99px; background: #004e92"></span></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 5px">
+                <span>Halı Saha · 1 Saat</span><span class="tnum" style="font-weight: 620">231.900 ₺</span>
+              </div>
+              <div style="height: 8px; border-radius: 99px; background: #eef1f6"><span style="display: block; height: 100%; width: 81%; border-radius: 99px; background: #0a7d56"></span></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 5px">
+                <span>Tenis Kortu · 1 Saat</span><span class="tnum" style="font-weight: 620">78.300 ₺</span>
+              </div>
+              <div style="height: 8px; border-radius: 99px; background: #eef1f6"><span style="display: block; height: 100%; width: 27%; border-radius: 99px; background: #6d4ac7"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 18px 20px">
+          <h3 class="dsp" style="margin: 0 0 12px; font-size: 15.5px; font-weight: 650">Kaçan para</h3>
+          <div class="tnum" style="font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: #c93a3a">72.071 ₺</div>
+          <div style="font-size: 12.5px; color: #68717f; margin-top: 3px">60 rezervasyona gelinmedi · dönem içi oranı %7</div>
+          <div style="height: 1px; background: #e3e7ee; margin: 14px 0"></div>
+          <div style="font-size: 13px; color: #4b5566; line-height: 1.6">
+            Otomatik hatırlatma bu kaybı tipik olarak %40 azaltır:
+            bu ay <b style="color: #0a7d56">28.828 ₺</b> geri kazanılabilirdi.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

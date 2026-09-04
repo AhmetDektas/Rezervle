@@ -1,0 +1,39 @@
+{
+  "artboards": [
+    { "file": "Once.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Özet — şu an (11 blok)" },
+    { "file": "Main.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "Bugün — sadeleştirilmiş (4 blok)" },
+    { "file": "Ciro.dc.html", "x": 0, "y": 1120, "w": 1440, "h": 900, "title": "Ciro — sekmeli" },
+    { "file": "AnaSayfa.dc.html", "x": 1560, "y": 1120, "w": 1440, "h": 1120, "title": "Ana sayfa — uygulama tanıtımı" }
+  ],
+  "annotations": [
+    {
+      "id": "not-menu",
+      "x": 0,
+      "y": -150,
+      "w": 700,
+      "text": "MENÜ 12 → 5\n\nKapora, Paket & Kredi ve Kampanya ayrı menü maddesi olmaktan çıkıp Ciro ekranında sekme oluyor — üçü de zaten para konusu.\nMüşteri uygulaması ve Paket/fatura Ayarlar'a giriyor.\nKalan: Bugün · Takvim · Müşteriler · Ciro · Ayarlar"
+    },
+    {
+      "id": "not-ozet",
+      "x": 1560,
+      "y": -150,
+      "w": 700,
+      "text": "ÖZET 11 → 4 BLOK\n\n1) Tek sayı kartı: dört KPI kartı yerine bir ciro rakamı + üç yardımcı sayı.\n2) Bugünün akışı — ekranın asıl işi, en çok yeri o alıyor.\n3) \"Bugün ne yapmalısın\" — üç eylem kartı yerine tek liste.\n4) Bu ay + mini grafik.\n\nÇıkanlar: SMS kotası, son hareketler, iki grafik (Ciro'da zaten var), demo bandı."
+    },
+    {
+      "id": "not-ciro",
+      "x": 0,
+      "y": 2070,
+      "w": 700,
+      "text": "CİRO — SEKMELİ\n\nKapora / Paket & kredi / Kampanya buraya sekme olarak taşındı. Kapora sekmesinde bekleyen iş sayısı rozet olarak duruyor, menüye ayrı satır eklemeye gerek kalmıyor.\n\nEkranda üç blok: rakam, grafik, iki kırılım."
+    },
+    {
+      "id": "not-anasayfa",
+      "x": 1560,
+      "y": 2290,
+      "w": 700,
+      "text": "ANA SAYFA — SADECE UYGULAMA TANITIMI\n\nAyrı işletme pazarlama sayfası kalkıyor. İşletmeye tek yol: sağ üstteki \"İşletme girişi\" düğmesi, doğrudan panele.\n\nSayfada B2B dili yok (ciro, no-show, anket yüzdeleri) — kullanıcı bunları umursamıyor."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}
