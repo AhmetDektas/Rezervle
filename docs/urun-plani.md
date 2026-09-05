@@ -165,3 +165,84 @@ ne zaman açılacakları yazılı.
 
 22 görev, `~/.gstack/projects/Rezervle/tasks-ceo-review-*.jsonl` dosyasında.
 P1: 14 · P2: 8 · P3: 0
+
+---
+
+# Mühendislik İncelemesi (/plan-eng-review)
+
+Hedef: 22 görevlik uygulama planı. Mod: FULL_REVIEW. 9 bulgu, tamamı karara bağlandı.
+
+## Step 0 — Kapsam sınaması
+
+**D1: tek blok.** 22 görev birlikte çıkacak (öneri iki fazdı; kullanıcı tek bloku
+seçti). Tek yönlü kapı (işletme kaydı) ve gerçek para aynı anda açılıyor.
+
+**D2: PgBouncer çıkarıldı.** S7-1 havuzlayıcı seçmişti ama S9-1 tek uzun ömürlü
+sunucu modelini seçti. O modelde web + worker ~18 bağlantı açar, Postgres
+varsayılanı 100. Havuzlayıcı sıfır fayda, artı işletme yükü. → E9
+
+## Bulgular ve kararlar
+
+| # | Bulgu | Güven | Karar |
+|---|---|---|---|
+| 1 | Dağıtımda uçuştaki işler kesiliyor | 8/10 | Zarif kapanış + iş zaman aşımı (E1) |
+| 2 | TODOS T-E6 kısıtı planla çelişiyor | 9/10 | Asgari itiraz kanalı; tam akış ertelendi (E2) |
+| 3 | CI yok, test yüzü Postgres+Redis'e taşınıyor | 9/10 | CI şimdi kurulacak (E3) |
+| 4 | Hız sınırı webhook tekrarlarını boğabilir | 7/10 | Webhook sınır dışı, koruma imza (E4) |
+| 5 | Üç zamanlanmış iş, ortak desen yok | 8/10 | Ortak defineJob (E5) |
+| 6 | Worker'ın hata sözleşmesi yok | 8/10 | log.ts defineJob içinden (E6) |
+| 7 | E2E 12,7 dk; CI katmanı belirsiz | — | Hızlı her push, E2E PR'da (E3) |
+| 8 | Zamanlanmış sorguların indeksi yok | 8/10 | Alan migration'ına dahil (E7) |
+| 9 | Analitik yazımının yeri belirsiz | 7/10 | Kuyruk üzerinden, yan etki (E8) |
+
+## Kapsam DIŞI (bilinçli olarak)
+
+- **Tam E6 hakemlik ekranı** — asgari itiraz kanalı yeterli; tam akış ilk gerçek
+  vakalardan tasarlanacak (TODOS T-E6)
+- **İşletme doğrulama otomasyonu (E2/CEO)** — ilk 10-20 işletmede admin manuel
+- **Aktivasyon sihirbazı (E4/CEO)** — S11-2 ile hafif kontrol listesi kapsamda
+- **PgBouncer** — seçilen barındırma modelinde gereksiz (D2)
+- **Sunucusuz barındırma** — S9-1 ile uzun ömürlü süreç seçildi
+
+## Zaten var olanlar (yeniden kullanılıyor, yeniden yazılmıyor)
+
+| Var olan | Hangi görev kullanıyor |
+|---|---|
+| `Business.status` + `statusHistory` + admin kuyruğu | T6 (onay yarısı hazır) |
+| `providers.ts` adaptör dişi (2 çağrı yeri) | T2, T3 |
+| `depositAddon`/`depositEnabled` deseni | T16 ana şalter |
+| `src/lib/time.ts` enjekte edilebilir saat | T18 (icat değil, benimseme) |
+| `src/server/log.ts` (bu oturumda yazıldı) | E6 worker sözleşmesi |
+| `run()`/`DomainError`/`ActionResult` | T12 tamamlandı |
+| Form `loading` deseni | çift gönderim zaten kapalı |
+
+## Arıza modları
+
+| Kod yolu | Arıza | Test | Hata yönetimi | Kullanıcı görür mü |
+|---|---|---|---|---|
+| notifyChannels | SMTP down | ✅ var | ✅ izole | uygulama içi bildirim durur |
+| charge → 3DS | kullanıcı terk eder | ⬜ E1 sonrası | ✅ paymentDeadline | bekleme ekranı (T19) |
+| webhook | tekrar teslim | ⬜ | ✅ ProcessedEvent | — (sessiz, doğru) |
+| webhook | hız sınırına takılır | ⬜ | ✅ E4 muafiyeti | — |
+| worker | dağıtımda kesilir | ⬜ | ✅ E1 zarif kapanış | — |
+| hatırlatma işi | iki kez çalışır | ⬜ | ✅ reminderSentAt | çift SMS önlenir |
+| analitik | kuyruk erişilemez | ⬜ | ✅ yan etki (E8) | — (S8-1 alarmı kapsamalı) |
+| requireBusinessAccess | DB arızası | ✅ var | ✅ yükselir | hata sayfası |
+
+**Kritik boşluk: 0.** Her arıza modunun ya testi ya hata yönetimi var; hiçbiri
+hem testsiz hem yönetimsiz hem sessiz değil.
+
+## Paralelleştirme
+
+| Şerit | Görevler | Dokunulan modül | Bağımlılık |
+|---|---|---|---|
+| A | T1 (Postgres) → E7 (indeks) | `prisma/` | — |
+| B | T9, E5, E6, E1 (kuyruk + worker) | `src/worker/` | — |
+| C | T6, T7, T8, T11, E4 (kayıt + güvenlik) | `src/app/actions/`, `src/server/` | A |
+| D | T2, T3, T5, T16, T17, T19 (ödeme) | `src/server/`, `src/app/api/` | A, B |
+| E | E3 (CI) | `.github/` | — |
+
+**Çakışma uyarısı:** C ve D şeritlerinin ikisi de `src/server/` altına yazıyor.
+Paralel koşarlarsa birleştirme çakışması olası; C'yi bitirip D'ye geçmek daha güvenli.
+
+**Yürütme sırası:** A + B + E paralel → C → D.

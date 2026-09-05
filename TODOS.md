@@ -24,6 +24,12 @@ otomatik iade). Eksik olan itiraz mekanizması, kural değil.
 **Nereden başlanır:** Admin panelinde randevu ve ödeme geçmişi zaten görünüyor;
 ilk vakaları elle çözüp akışı o vakalardan tasarlayın.
 
+**Güncelleme (mühendislik incelemesi, 2026-09-05):** Asgari itiraz kanalı kapsama
+alındı (görev E2): randevu detayında "Kapora hakkında itirazım var" bağlantısı,
+talep admin'e bildirim olarak düşer, çözüm elle yapılır. Bu kalem artık yalnızca
+tam hakemlik ekranını kapsıyor; "ilk kapora tahsilatından önce" kısıtı asgari
+kanalla karşılandı.
+
 **Efor:** M (human ~1 hafta / CC ~1-2 oturum) · **Öncelik:** P1
 **Bağımlı:** Gerçek ödeme (3. parça) canlıya çıkmadan önce.
 
