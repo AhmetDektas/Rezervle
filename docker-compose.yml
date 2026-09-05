@@ -1,0 +1,50 @@
+# Yerel geliştirme bağımlılıkları.
+#
+# Sürümler CI ile birebir aynı (.github/workflows/test.yml servis
+# konteynerleri): "bende çalışıyordu" sınıfı hatalar buradan doğar.
+#
+#   docker compose up -d      → Postgres ve Redis'i başlatır
+#   docker compose down       → durdurur (veri kalır)
+#   docker compose down -v    → veriyi de siler
+#
+# Uygulama konteynerde değil; `npm run dev` ve `npm run worker` her zamanki
+# gibi ana makinede çalışır ve bu iki servise bağlanır.
+services:
+  postgres:
+    image: postgres:16
+    container_name: rezzerv-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rezzerv
+      POSTGRES_PASSWORD: rezzerv
+      POSTGRES_DB: rezzerv
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rezzerv']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: rezzerv-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    # Kuyruk verisi kalıcı olmalı: worker kapalıyken kuyruğa atılan iş
+    # (hatırlatma, bildirim yeniden denemesi) yeniden başlatmada kaybolmasın.
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
