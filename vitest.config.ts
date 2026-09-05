@@ -22,6 +22,9 @@ export default defineConfig({
         process.env['TEST_DATABASE_URL'] ??
         'postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public',
       AUTH_SECRET: 'test-secret-en-az-otuz-iki-karakter-uzunlugunda',
+      // Hız sınırı sayacı Redis'te. Tanımsız bırakılırsa sınır sessizce
+      // devre dışı kalır ve testler hiçbir şey doğrulamadan yeşil görünür.
+      REDIS_URL: process.env['REDIS_URL'] ?? 'redis://localhost:6379',
     },
   },
 });

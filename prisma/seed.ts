@@ -565,6 +565,12 @@ async function main(): Promise<void> {
     },
   });
 
+  // Hız sınırı sayaçları da bilinen duruma dönmeli. Sayaç Redis'te ve
+  // pencereleri saatlerce yaşıyor: saat içinde ikinci bir E2E koşusu, ilkinden
+  // kalan sayaçla işletme başvurusu sınırına takılır ve test veri yüzünden
+  // değil geçmiş koşu yüzünden düşer.
+  await hizSiniriSayaclariniTemizle();
+
   // Tohum kullanıcıları kurgusal ama uygulama onları gerçek kullanıcı gibi
   // görüyor: rıza kaydı olmayan hesap diş/veteriner randevusu alamaz. Kayıt
   // akışı rızayı createAccount içinde yazıyor, tohum kullanıcıları o yoldan
@@ -591,6 +597,26 @@ async function main(): Promise<void> {
   console.log('  İşletme sahibi serhat@beyazdis.com');
   console.log('  Personel       aylin.kara@beyazdispoliklinigi.com');
   console.log('  Yönetici       admin@rezzerv.com\n');
+}
+
+
+/** Hız sınırı sayaçlarını siler. REDIS_URL yoksa sessizce atlanır. */
+async function hizSiniriSayaclariniTemizle(): Promise<void> {
+  const url = process.env['REDIS_URL'];
+  if (!url) return;
+  const { default: IORedis } = await import('ioredis');
+  const redis = new IORedis(url, { maxRetriesPerRequest: 1, lazyConnect: true });
+  try {
+    await redis.connect();
+    const anahtarlar = await redis.keys('rl:*');
+    if (anahtarlar.length) await redis.del(...anahtarlar);
+    console.log(`  ${anahtarlar.length} hız sınırı sayacı temizlendi`);
+  } catch {
+    // Redis yoksa tohum yine de işini bitirmeli; sayaç kendi TTL'iyle ölür.
+    console.log('  Redis erişilemedi: hız sınırı sayaçları temizlenmedi');
+  } finally {
+    redis.disconnect();
+  }
 }
 
 main()

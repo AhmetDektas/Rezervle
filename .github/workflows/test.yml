@@ -6,10 +6,10 @@
 #            yerelde 12,7 dk sürüyor; her push'ta koşarsa geri bildirim
 #            döngüsü insanları CI'a bakmamaya iter.
 #
-# Her iki iş de Postgres servisine bağlanır: T1 göçünden sonra entegrasyon
-# testleri de gerçek veritabanı istiyor. Redis yalnızca e2e işinde; kuyruk
-# işleri henüz E2E akışına girmedi ama servis şimdiden ayakta ki iş
-# eklendiğinde CI'ın kendisini değiştirmek gerekmesin.
+# Her iki iş de Postgres ve Redis servislerine bağlanır: T1 göçünden sonra
+# entegrasyon testleri gerçek veritabanı, T11 hız sınırı ise gerçek Redis
+# istiyor. Sayaç Redis'siz sessizce devre dışı kaldığı için servis olmadan
+# testler "geçer" ama hiçbir şey doğrulamaz.
 name: test
 
 on:
@@ -44,12 +44,25 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # T11 hiz siniri sayaci Redis'te. Servis olmadan sinir sessizce devre
+      # disi kalir ve testleri hicbir sey dogrulamadan gecer — korumanin
+      # calismadigini fark etmenin yolu yok.
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       # Bu iste yalnizca testler kosuyor, bu yuzden servisin varsayilan
       # veritabani dogrudan test veritabani olarak kullaniliyor;
       # global-setup.ts her kosuda onu sifirliyor.
       DATABASE_URL: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public
       TEST_DATABASE_URL: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - uses: actions/checkout@v4

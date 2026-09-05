@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction, assertBusinessAccess, currentUser } from '@/server/auth';
 import { getDayAvailability, ONLINE_LEAD_MIN, STAFF_LEAD_MIN } from '@/server/schedule';
+import { RATE_LIMITS, enforceRateLimit } from '@/server/rate-limit';
 import {
   createReservation,
   rescheduleReservation,
@@ -64,6 +65,10 @@ export async function createBookingAction(
   }
   const result = await run(async (ctx) => {
     const user = await requireUserAction();
+    // Kimliği doğrulanmış kullanıcıya bağlı sınır: rezervasyon spam'i tek
+    // hesaptan gelir ve işletmenin takvimini doldurur. IP yerine kullanıcı,
+    // çünkü aynı ofisten bağlanan farklı müşteriler birbirini engellememeli.
+    await enforceRateLimit(RATE_LIMITS.randevu, user.id);
     // Para yolundaki en kritik eylem: hata olursa hangi müşteri, hangi
     // işletme ve hangi ödeme yöntemi olduğu logdan okunabilmeli.
     ctx.userId = user.id;

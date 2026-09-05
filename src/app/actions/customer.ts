@@ -7,6 +7,7 @@ import { requireUserAction } from '@/server/auth';
 import { profileSchema, reviewSchema, fieldErrors } from '@/lib/validation';
 import { notifyBusiness } from '@/server/notifications';
 import { grantConsent, revokeConsent } from '@/server/consent';
+import { RATE_LIMITS, enforceRateLimit } from '@/server/rate-limit';
 
 export async function toggleFavoriteAction(businessId: string): Promise<ActionResult<{ favorite: boolean }>> {
   const result = await run(async () => {
@@ -90,6 +91,7 @@ export async function submitReviewAction(
   }
   const result = await run(async () => {
     const user = await requireUserAction();
+    await enforceRateLimit(RATE_LIMITS.degerlendirme, user.id);
     const reservation = await prisma.reservation.findUnique({
       where: { id: parsed.data.reservationId },
       select: { id: true, customerId: true, businessId: true, status: true, staffId: true, review: { select: { id: true } } },

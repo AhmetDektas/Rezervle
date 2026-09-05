@@ -105,3 +105,21 @@ arz tarafı verisi geldikten sonra tekrar bakılacak bir alternatif olarak
 duruyor.
 
 **Efor:** M · **Öncelik:** P3
+
+### T-03 · Webhook hız sınırının dışında tutulmalı (E4)
+
+**Ne:** Ödeme sağlayıcısının webhook uç noktası (T17/T19) `enforceRateLimit`
+çağırmamalı; koruması imza doğrulaması olmalı.
+
+**Neden:** Sağlayıcı başarısız teslimatı tekrar dener; art arda gelen
+tekrarlar hız sınırına takılırsa sağlayıcı denemekten vazgeçer ve ödeme
+durumu kalıcı olarak yarım kalır. Kullanıcı parayı ödemiş ama randevusu
+onaylanmamış olur — sessiz ve pahalı bir arıza.
+
+**Şu anki durum:** Webhook rotası henüz yok (`src/app/api` boş), bu yüzden
+"muafiyet" diye yazılacak bir kod da yok. T11 bunu yapısal olarak çözüyor:
+hız sınırı bir middleware değil, her eylemin kendisinin çağırdığı bir
+fonksiyon. Webhook'u unutmak zaten varsayılan davranış. Bu kalem, T17/T19
+yazılırken sınırın oraya **eklenmemesi** gerektiğini hatırlatmak için var.
+
+**Efor:** XS (yalnızca dikkat) · **Öncelik:** P1 — T17/T19 ile aynı anda

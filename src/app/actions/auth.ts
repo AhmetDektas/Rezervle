@@ -10,6 +10,14 @@ import { notifyUser } from '@/server/notifications';
 import { activePlatformPromotion, welcomeBody } from '@/server/promotions';
 import { submitBusinessApplication } from '@/server/business-application';
 import { createAccount } from '@/server/accounts';
+import {
+  RATE_LIMITS,
+  clientIdentifier,
+  enforceRateLimit,
+  assertNotRateLimited,
+  recordRateLimitFailure,
+  clearRateLimit,
+} from '@/server/rate-limit';
 
 export type AuthResult = ActionResult<{ role: Role }> & { fields?: Record<string, string> };
 
@@ -22,16 +30,31 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     return { ok: false, error: 'Lütfen bilgilerinizi kontrol edin.', fields: fieldErrors(parsed.error) };
   }
 
+  const kimlik = await clientIdentifier();
+
   const result = await run(async () => {
+    // Kapı sayacı ARTIRMIYOR, yalnızca okuyor. Artırsaydı reddedilen her
+    // istek sayacı bir kez daha büyütür ve pencere hiç boşalmazdı; kilitlenen
+    // kullanıcı denedikçe kilidi uzatırdı.
+    await assertNotRateLimited(RATE_LIMITS.giris, kimlik);
+
     const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
     // Kullanıcı yok ile parola yanlış aynı mesajı döndürür: hesap sayımı yapılamasın.
     if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
       throw new DomainError('E-posta veya parola hatalı.', 'BAD_CREDENTIALS');
     }
     if (!user.active) throw new DomainError('Hesabınız devre dışı. Destek ile iletişime geçin.', 'INACTIVE');
+    // Parolasını bilen kullanıcı önceki hatalı denemeler yüzünden kilitlenmemeli.
+    await clearRateLimit(RATE_LIMITS.giris, kimlik);
     await setSessionCookie({ uid: user.id, role: user.role as Role, name: user.name });
     return { role: user.role as Role };
   }, { action: 'loginAction' });
+
+  // Yalnızca BAŞARISIZ deneme sayılıyor: kaba kuvvet tekrarlı başarısızlıktır.
+  // Başarılı girişi saymak, gün boyu çalışan gerçek kullanıcıyı cezalandırırdı.
+  if (!result.ok && result.code !== 'RATE_LIMITED') {
+    await recordRateLimitFailure(RATE_LIMITS.giris, kimlik);
+  }
   return result;
 }
 
@@ -48,6 +71,7 @@ export async function registerAction(formData: FormData): Promise<AuthResult> {
   }
 
   return run(async () => {
+    await enforceRateLimit(RATE_LIMITS.kayit, await clientIdentifier());
     // Hesap kurulumu createAccount'ta: e-posta tekilliği, parola özeti, rol,
     // müşteri profili ve KVKK rıza kaydı iki kayıt yolunda da aynı yerden
     // geçsin diye. Burada kopyalandığı sürece rıza yalnızca işletme
@@ -121,6 +145,7 @@ export async function registerBusinessAction(formData: FormData): Promise<AuthRe
   }
 
   return run(async (ctx) => {
+    await enforceRateLimit(RATE_LIMITS.isletmeBasvurusu, await clientIdentifier());
     const result = await submitBusinessApplication({
       ownerName: parsed.data.ownerName,
       email: parsed.data.email,
