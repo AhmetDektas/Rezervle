@@ -19,7 +19,7 @@ export async function toggleFavoriteAction(businessId: string): Promise<ActionRe
     }
     await prisma.favorite.create({ data: { userId: user.id, businessId } });
     return { favorite: true };
-  });
+  }, { action: 'toggleFavoriteAction' });
   if (result.ok) revalidatePath('/favorilerim');
   return result;
 }
@@ -32,7 +32,7 @@ export async function markNotificationsReadAction(): Promise<ActionResult<undefi
       data: { readAt: new Date() },
     });
     return undefined;
-  });
+  }, { action: 'markNotificationsReadAction' });
   if (result.ok) revalidatePath('/bildirimler');
   return result;
 }
@@ -74,7 +74,7 @@ export async function updateProfileAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'updateProfileAction' });
   if (result.ok) revalidatePath('/profil');
   return result;
 }
@@ -128,7 +128,7 @@ export async function submitReviewAction(
       body: `${parsed.data.rating} yıldız · ${parsed.data.comment.slice(0, 80) || 'Yorum yok'}`,
     });
     return undefined;
-  });
+  }, { action: 'submitReviewAction' });
   if (result.ok) revalidatePath('/randevularim');
   return result;
 }

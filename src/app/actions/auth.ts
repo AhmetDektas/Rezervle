@@ -28,7 +28,7 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
     if (!user.active) throw new DomainError('Hesabınız devre dışı. Destek ile iletişime geçin.', 'INACTIVE');
     await setSessionCookie({ uid: user.id, role: user.role as Role, name: user.name });
     return { role: user.role as Role };
-  });
+  }, { action: 'loginAction' });
   return result;
 }
 
@@ -67,7 +67,7 @@ export async function registerAction(formData: FormData): Promise<AuthResult> {
     });
     await setSessionCookie({ uid: user.id, role: 'CUSTOMER', name: user.name });
     return { role: 'CUSTOMER' as Role };
-  });
+  }, { action: 'registerAction' });
 }
 
 export async function logoutAction(): Promise<void> {

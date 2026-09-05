@@ -79,7 +79,7 @@ export async function setBusinessStatusAction(
       to: status,
     });
     return undefined;
-  });
+  }, { action: 'setBusinessStatusAction' });
   if (result.ok) {
     revalidatePath('/yonetim/isletmeler');
     revalidatePath('/kesfet');
@@ -96,7 +96,7 @@ export async function toggleFeaturedAction(
     await prisma.business.update({ where: { id: businessId }, data: { featured } });
     await audit(admin.id, 'business.featured', 'Business', businessId, { featured });
     return undefined;
-  });
+  }, { action: 'toggleFeaturedAction' });
   if (result.ok) {
     revalidatePath('/yonetim/isletmeler');
     revalidatePath('/');
@@ -114,7 +114,7 @@ export async function setUserActiveAction(
     await prisma.user.update({ where: { id: userId }, data: { active } });
     await audit(admin.id, 'user.active', 'User', userId, { active });
     return undefined;
-  });
+  }, { action: 'setUserActiveAction' });
   if (result.ok) revalidatePath('/yonetim/kullanicilar');
   return result;
 }
@@ -130,7 +130,7 @@ export async function setUserRoleAction(
     await prisma.user.update({ where: { id: userId }, data: { role } });
     await audit(admin.id, 'user.role', 'User', userId, { role });
     return undefined;
-  });
+  }, { action: 'setUserRoleAction' });
   if (result.ok) revalidatePath('/yonetim/kullanicilar');
   return result;
 }
@@ -164,7 +164,7 @@ export async function moderateReviewAction(
     });
     await audit(admin.id, 'review.moderate', 'Review', reviewId, { status });
     return undefined;
-  });
+  }, { action: 'moderateReviewAction' });
   if (result.ok) revalidatePath('/yonetim/degerlendirmeler');
   return result;
 }
@@ -208,7 +208,7 @@ export async function saveCategoryAction(input: {
     });
     await audit(admin.id, 'category.create', 'BusinessCategory', created.id);
     return undefined;
-  });
+  }, { action: 'saveCategoryAction' });
   if (result.ok) {
     revalidatePath('/yonetim/kategoriler');
     revalidatePath('/');
@@ -248,7 +248,7 @@ export async function toggleDepositAddonAction(
     });
     await audit(admin.id, 'business.depositAddon', 'Business', businessId, { active });
     return undefined;
-  });
+  }, { action: 'toggleDepositAddonAction' });
   if (result.ok) revalidatePath('/yonetim/isletmeler');
   return result;
 }

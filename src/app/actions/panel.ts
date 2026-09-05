@@ -120,7 +120,7 @@ export async function panelCreateReservationAction(
       actorId: user.id,
     });
     return { reservationId: reservation.id };
-  });
+  }, { action: 'panelCreateReservationAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -147,7 +147,7 @@ export async function setStatusAction(
       note: parsed.data.note,
     });
     return undefined;
-  });
+  }, { action: 'setStatusAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -170,7 +170,7 @@ export async function saveInternalNoteAction(
       data: { internalNote: note.trim().slice(0, 500) || null },
     });
     return undefined;
-  });
+  }, { action: 'saveInternalNoteAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -206,7 +206,7 @@ export async function saveServiceAction(
       });
     }
     return { id: service.id };
-  });
+  }, { action: 'saveServiceAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -227,7 +227,7 @@ export async function toggleServiceAction(
     await assertBusinessAccess(user, service.businessId);
     await prisma.service.update({ where: { id: serviceId }, data: { active } });
     return undefined;
-  });
+  }, { action: 'toggleServiceAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -278,7 +278,7 @@ export async function saveStaffAction(
       });
     }
     return { id: member.id };
-  });
+  }, { action: 'saveStaffAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -311,7 +311,7 @@ export async function toggleStaffAction(
     }
     await prisma.staffMember.update({ where: { id: staffId }, data: { active } });
     return undefined;
-  });
+  }, { action: 'toggleStaffAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -377,7 +377,7 @@ export async function saveHoursAction(
       }
     }
     return undefined;
-  });
+  }, { action: 'saveHoursAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -427,7 +427,7 @@ export async function saveTimeOffAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'saveTimeOffAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -443,7 +443,7 @@ export async function deleteTimeOffAction(slug: string, id: string): Promise<Act
     await assertBusinessAccess(user, row.staff.businessId);
     await prisma.timeOff.delete({ where: { id } });
     return undefined;
-  });
+  }, { action: 'deleteTimeOffAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -486,7 +486,7 @@ export async function saveBranchAction(
       },
     });
     return { id: branch.id };
-  });
+  }, { action: 'saveBranchAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -520,7 +520,7 @@ export async function savePromotionAction(
     if (exists) throw new DomainError('Bu kod başka bir kampanyada kullanılıyor.', 'CODE_TAKEN');
     const promo = await prisma.promotion.create({ data: { ...data, businessId } });
     return { id: promo.id };
-  });
+  }, { action: 'savePromotionAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -537,7 +537,7 @@ export async function togglePromotionAction(
     await assertBusinessAccess(user, promo.businessId);
     await prisma.promotion.update({ where: { id }, data: { active } });
     return undefined;
-  });
+  }, { action: 'togglePromotionAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -557,7 +557,7 @@ export async function addCustomerNoteAction(
       data: { businessId, customerId, authorId: user.id, body: text.slice(0, 1000) },
     });
     return undefined;
-  });
+  }, { action: 'addCustomerNoteAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -582,7 +582,7 @@ export async function toggleCustomerTagAction(
     }
     await prisma.customerTagLink.create({ data: { tagId, customerId } });
     return { attached: true };
-  });
+  }, { action: 'toggleCustomerTagAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -610,7 +610,7 @@ export async function updateBusinessProfileAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'updateBusinessProfileAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -635,7 +635,7 @@ export async function replyToReviewAction(
       data: { reply: text.slice(0, 600), repliedAt: new Date() },
     });
     return undefined;
-  });
+  }, { action: 'replyToReviewAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -676,7 +676,7 @@ export async function addBusinessImageAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'addBusinessImageAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -701,7 +701,7 @@ export async function deleteBusinessImageAction(
       data: { coverUrl: null },
     });
     return undefined;
-  });
+  }, { action: 'deleteBusinessImageAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -724,7 +724,7 @@ export async function setCoverImageAction(
     }
     await prisma.business.update({ where: { id: businessId }, data: { coverUrl: url } });
     return undefined;
-  });
+  }, { action: 'setCoverImageAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -770,7 +770,7 @@ export async function updateDepositSettingsAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'updateDepositSettingsAction' });
   if (result.ok) touch(slug);
   return result;
 }
@@ -870,7 +870,7 @@ export async function dayContextAction(reservationId: string): Promise<ActionRes
       })),
       issue: await auditReservation(target.id),
     };
-  });
+  }, { action: 'dayContextAction' });
 }
 
 /**
@@ -906,7 +906,7 @@ export async function updatePayoutAction(
       },
     });
     return undefined;
-  });
+  }, { action: 'updatePayoutAction' });
   if (result.ok) touch(slug);
   return result;
 }

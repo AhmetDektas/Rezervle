@@ -37,7 +37,7 @@ export async function slotsAction(input: {
       leadMin: byStaff ? STAFF_LEAD_MIN : ONLINE_LEAD_MIN,
       stepMin: SLOT_STEP_MIN,
     });
-  });
+  }, { action: 'slotsAction' });
 }
 
 /**
@@ -49,7 +49,7 @@ export async function quoteBookingAction(input: {
   serviceId: string;
   promotionCode?: string;
 }): Promise<ActionResult<BookingQuote>> {
-  return run(() => quoteBooking(input));
+  return run(() => quoteBooking(input), { action: 'quoteBookingAction' });
 }
 
 export type BookingSuccess = { reservationId: string; code: string };
@@ -62,8 +62,18 @@ export async function createBookingAction(
   if (!parsed.success) {
     return { ok: false, error: 'Formda eksik bilgi var.', fields: fieldErrors(parsed.error) };
   }
-  const result = await run(async () => {
+  const result = await run(async (ctx) => {
     const user = await requireUserAction();
+    // Para yolundaki en kritik eylem: hata olursa hangi müşteri, hangi
+    // işletme ve hangi ödeme yöntemi olduğu logdan okunabilmeli.
+    ctx.userId = user.id;
+    ctx.meta = {
+      businessId: parsed.data.businessId,
+      serviceId: parsed.data.serviceId,
+      date: parsed.data.date,
+      startMin: parsed.data.startMin,
+      paymentMethod: parsed.data.paymentMethod,
+    };
     const reservation = await createReservation({
       businessId: parsed.data.businessId,
       branchId: parsed.data.branchId,
@@ -79,7 +89,7 @@ export async function createBookingAction(
       actorId: user.id,
     });
     return { reservationId: reservation.id, code: reservation.code };
-  });
+  }, { action: 'createBookingAction' });
   if (result.ok) {
     revalidatePath('/randevularim');
     revalidatePath('/');
@@ -92,8 +102,10 @@ export async function cancelBookingAction(
   reservationId: string,
   reason?: string,
 ): Promise<ActionResult<undefined>> {
-  const result = await run(async () => {
+  const result = await run(async (ctx) => {
     const user = await requireUserAction();
+    ctx.userId = user.id;
+    ctx.meta = { reservationId };
     const reservation = await prisma.reservation.findUnique({
       where: { id: reservationId },
       select: { id: true, customerId: true, businessId: true, date: true, startMin: true, status: true },
@@ -115,7 +127,7 @@ export async function cancelBookingAction(
       note: reason ?? (isOwnerOfRecord ? 'Müşteri iptal etti' : 'İşletme iptal etti'),
     });
     return undefined;
-  });
+  }, { action: 'cancelBookingAction' });
   if (result.ok) {
     revalidatePath('/randevularim');
     revalidatePath(`/randevularim/${reservationId}`);
@@ -161,7 +173,7 @@ export async function rescheduleBookingAction(
       byStaff: !isCustomer,
     });
     return undefined;
-  });
+  }, { action: 'rescheduleBookingAction' });
   if (result.ok) {
     revalidatePath('/randevularim');
     revalidatePath(`/randevularim/${(input as { reservationId?: string }).reservationId ?? ''}`);
