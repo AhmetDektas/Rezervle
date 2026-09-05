@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { today, addDays, weekdayOf } from '@/lib/time';
+import { CONSENT_KINDS, CONSENT_VERSION } from '@/lib/constants';
 
 /** Testlerde kullanılan minimum ama gerçekçi işletme kurulumu. */
 export type Fixture = Awaited<ReturnType<typeof createFixture>>;
@@ -30,6 +31,7 @@ export async function resetDatabase(): Promise<void> {
     prisma.businessCategory.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.customerProfile.deleteMany(),
+    prisma.consent.deleteMany(),
     prisma.user.deleteMany(),
   ]);
 }
@@ -46,6 +48,15 @@ export async function createFixture(options: { status?: string } = {}) {
   });
   const other = await prisma.user.create({
     data: { email: `diger-${Date.now()}@test.local`, passwordHash: 'x', name: 'Diğer Müşteri', role: 'CUSTOMER' },
+  });
+
+  // Fixture işletmesi DENTAL: rıza olmadan randevu oluşmaz. Gerçek kayıt akışı
+  // rızayı createAccount içinde yazıyor, elle kurulan kullanıcılar o yoldan
+  // geçmediği için burada tamamlanıyor.
+  await prisma.consent.createMany({
+    data: [owner, customer, other].flatMap((u) =>
+      CONSENT_KINDS.map((kind) => ({ userId: u.id, kind, version: CONSENT_VERSION })),
+    ),
   });
 
   const category = await prisma.businessCategory.create({

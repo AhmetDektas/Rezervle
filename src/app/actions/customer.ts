@@ -6,6 +6,7 @@ import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction } from '@/server/auth';
 import { profileSchema, reviewSchema, fieldErrors } from '@/lib/validation';
 import { notifyBusiness } from '@/server/notifications';
+import { grantConsent, revokeConsent } from '@/server/consent';
 
 export async function toggleFavoriteAction(businessId: string): Promise<ActionResult<{ favorite: boolean }>> {
   const result = await run(async () => {
@@ -130,5 +131,25 @@ export async function submitReviewAction(
     return undefined;
   }, { action: 'submitReviewAction' });
   if (result.ok) revalidatePath('/randevularim');
+  return result;
+}
+
+/**
+ * Açık rızayı verir veya geri alır.
+ *
+ * KVKK m.7 rızanın geri alınabilmesini zorunlu kılıyor ve aydınlatma metni bunu
+ * profil sayfası üzerinden vaat ediyor. Geri alma yalnızca kaydı kapatmıyor;
+ * `createReservation` hassas sektörlerde bu kaydı kontrol ediyor.
+ */
+export async function setConsentAction(granted: boolean): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    ctx.userId = user.id;
+    ctx.meta = { granted };
+    if (granted) await grantConsent(user.id);
+    else await revokeConsent(user.id);
+    return undefined;
+  }, { action: 'setConsentAction' });
+  if (result.ok) revalidatePath('/profil');
   return result;
 }

@@ -49,6 +49,7 @@ model User {
   auditLogs       AuditLog[]
   tagLinks        CustomerTagLink[]
   pets            PetProfile[]
+  consents        Consent[]
 
   @@index([role])
 }
@@ -476,6 +477,23 @@ model Promotion {
   reservations Reservation[]
 
   @@index([businessId, active])
+}
+
+model Consent {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // AYDINLATMA | ACIK_RIZA — src/lib/constants.ts CONSENT_KINDS
+  kind      String
+  // Onaylanan metnin surumu. Metin degisirse yeni surum yayinlanir ve eski
+  // kayit "hangi metne onay verildi" sorusunu cevaplamaya devam eder.
+  version   String
+  grantedAt DateTime  @default(now())
+  // Acik riza geri alinabilir olmak zorunda (KVKK m.7). Satir silinmez:
+  // "ne zaman verildi, ne zaman geri alindi" ikisi de kanit.
+  revokedAt DateTime?
+
+  @@index([userId, kind])
 }
 
 model Notification {

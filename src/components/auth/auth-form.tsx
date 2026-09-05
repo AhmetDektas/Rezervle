@@ -124,6 +124,25 @@ export function AuthForm({ mode, showDemo }: { mode: 'login' | 'register'; showD
           />
         </Field>
 
+        {mode === 'register' ? (
+          <Field error={fields['kvkk']}>
+            <label className="flex items-start gap-2.5 text-[13.5px] leading-relaxed text-ink-2">
+              <input
+                type="checkbox"
+                name="kvkk"
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-line-strong text-brand-500 focus:ring-2 focus:ring-brand-100"
+                aria-invalid={Boolean(fields['kvkk'])}
+              />
+              <span>
+                <Link href="/kvkk" className="font-medium text-brand-600 underline-offset-4 hover:underline">
+                  Aydınlatma metnini
+                </Link>{' '}
+                okudum; randevu geçmişimin işlenmesine açık rıza veriyorum.
+              </span>
+            </label>
+          </Field>
+        ) : null}
+
         <Button type="submit" size="lg" full loading={pending}>
           {mode === 'login' ? 'Giriş yap' : 'Hesap oluştur'}
         </Button>

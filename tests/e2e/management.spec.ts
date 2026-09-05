@@ -13,6 +13,8 @@ test.describe('kayıt', () => {
     await page.getByLabel('E-posta').fill(email);
     await page.getByLabel('Telefon').fill('0532 000 11 22');
     await page.getByLabel('Parola').fill('Rezzerv123');
+    // KVKK açık rızası zorunlu: kutu işaretlenmeden hesap açılmaz.
+    await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Hesap oluştur' }).click();
 
     await page.waitForURL((url) => !url.pathname.startsWith('/kayit'), { timeout: 20_000 });
@@ -38,6 +40,7 @@ test.describe('kayıt', () => {
     await page.getByLabel('Ad soyad').fill('Çakışan Hesap');
     await page.getByLabel('E-posta').fill(ACCOUNTS.customer);
     await page.getByLabel('Parola').fill('Rezzerv123');
+    await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Hesap oluştur' }).click();
     await expect(
       page.getByRole('alert').filter({ hasText: 'kayıtlı bir hesap zaten var' }),

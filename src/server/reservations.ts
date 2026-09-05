@@ -2,6 +2,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { DomainError } from './errors';
+import { hasActiveConsent, sectorNeedsConsent } from './consent';
 import { reservationCode } from '@/lib/utils';
 import { zonedToUtc, today, hhmm, diffDays } from '@/lib/time';
 import { longDate } from '@/lib/format';
@@ -149,6 +150,7 @@ export async function createReservation(input: CreateReservationInput) {
         depositRefundHours: true,
         commissionRate: true,
         subMerchantKey: true,
+        category: { select: { sector: true } },
       },
     }),
     prisma.service.findUnique({ where: { id: input.serviceId } }),
@@ -164,6 +166,26 @@ export async function createReservation(input: CreateReservationInput) {
   }
   if (!branch || !branch.active || branch.businessId !== business.id) {
     throw new DomainError('Seçilen şube bulunamadı.', 'BRANCH_INVALID');
+  }
+
+  // Diş, veteriner ve estetik randevusu sağlığa dair çıkarım taşır: açık rıza
+  // olmadan işlenemez (KVKK m.6). Rıza kayıtta yoksa ya da geri alınmışsa
+  // randevu burada durur — aydınlatma metninin verdiği söz bu.
+  //
+  // Yalnızca ONLINE kanalda aranıyor. Panelden açılan telefon/kapı randevusunda
+  // müşteri klavyenin başında değil; rızayı yüz yüze ya da telefonda alan taraf
+  // işletmenin kendisi. Orada da şart koşmak, rıza veremeyecek durumdaki bir
+  // insanın randevusunu engellemekten başka bir işe yaramaz — üstelik hata
+  // mesajı personele "profil sayfanızdan verin" derdi ki rıza personelin değil.
+  if (
+    input.channel === 'ONLINE' &&
+    sectorNeedsConsent(business.category.sector) &&
+    !(await hasActiveConsent(input.customerId, 'ACIK_RIZA'))
+  ) {
+    throw new DomainError(
+      'Bu kategoride randevu oluşturmak için açık rıza gerekiyor. Profil sayfanızdan verebilirsiniz.',
+      'CONSENT_REQUIRED',
+    );
   }
 
   const horizon = diffDays(input.date, today());

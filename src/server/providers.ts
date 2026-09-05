@@ -46,14 +46,19 @@ export function smsProvider(): SmsProvider {
   return consoleSms;
 }
 
+/**
+ * Kanal gönderimi. `null` adres "bu kanala gönderme" demektir; kimin hangi
+ * kanalı istediğine çağıran karar verir (bkz. notifications.ts), adaptör
+ * yalnızca eline verileni gönderir.
+ */
 export async function notify(input: {
-  email: string;
+  email: string | null;
   phone: string | null;
   name: string;
   subject: string;
   body: string;
 }): Promise<void> {
-  await emailProvider().send({ to: input.email, subject: input.subject, body: input.body });
+  if (input.email) await emailProvider().send({ to: input.email, subject: input.subject, body: input.body });
   if (input.phone) await smsProvider().send({ to: input.phone, body: `${input.subject} — ${input.body}` });
 }
 

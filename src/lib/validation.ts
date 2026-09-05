@@ -30,6 +30,7 @@ export const registerSchema = z.object({
   email: emailSchema,
   phone: phoneSchema.optional().or(z.literal('')),
   password: passwordSchema,
+  kvkk: z.literal(true, { errorMap: () => ({ message: 'Devam etmek için onay verin.' }) }),
 });
 
 /**

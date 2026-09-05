@@ -224,11 +224,11 @@ export function BusinessRegisterForm({
               aria-invalid={Boolean(fields['kvkk'])}
             />
             <span>
-              İşletme ve iletişim bilgilerimin Rezzerv’de yayınlanmasını,{' '}
-              <Link href="/sozlesme" className="font-medium text-brand-600 underline-offset-4 hover:underline">
-                kullanım koşullarını
+              <Link href="/kvkk" className="font-medium text-brand-600 underline-offset-4 hover:underline">
+                Aydınlatma metnini
               </Link>{' '}
-              kabul ediyorum.
+              okudum; işletme ve iletişim bilgilerimin Rezzerv’de yayınlanmasını kabul
+              ediyorum.
             </span>
           </label>
         </Field>

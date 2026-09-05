@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import { BUSINESSES, CATEGORIES, CUSTOMER_NAMES, REVIEW_TEXTS } from './seed-data';
 import { depositFor, type DepositPolicy } from '../src/lib/deposit';
+import { CONSENT_KINDS, CONSENT_VERSION } from '../src/lib/constants';
 
 const prisma = new PrismaClient();
 
@@ -563,6 +564,18 @@ async function main(): Promise<void> {
       maxUses: 0,
     },
   });
+
+  // Tohum kullanıcıları kurgusal ama uygulama onları gerçek kullanıcı gibi
+  // görüyor: rıza kaydı olmayan hesap diş/veteriner randevusu alamaz. Kayıt
+  // akışı rızayı createAccount içinde yazıyor, tohum kullanıcıları o yoldan
+  // geçmediği için burada tamamlanıyor.
+  const tumKullanicilar = await prisma.user.findMany({ select: { id: true } });
+  await prisma.consent.createMany({
+    data: tumKullanicilar.flatMap((u) =>
+      CONSENT_KINDS.map((kind) => ({ userId: u.id, kind, version: CONSENT_VERSION })),
+    ),
+  });
+  console.log(`  ${tumKullanicilar.length * CONSENT_KINDS.length} rıza kaydı`);
 
   const counts = {
     kullanıcı: await prisma.user.count(),

@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/server/auth';
 import { DomainError } from '@/server/errors';
-import type { Role } from '@/lib/constants';
+import { CONSENT_KINDS, CONSENT_VERSION, type Role } from '@/lib/constants';
 
 /**
  * Hesap oluşturmanın tek yeri.
@@ -50,6 +50,12 @@ export async function createAccount(
       // Müşteri profili yalnızca müşteri hesabında anlamlı; işletme sahibi
       // randevu almak isterse profil o zaman oluşur.
       ...(input.role === 'CUSTOMER' ? { customerProfile: { create: {} } } : {}),
+      // Rıza kaydı hesapla aynı işlemde yazılıyor: kaydı olup rızası olmayan
+      // bir kullanıcı hiç oluşamaz. Kutu formda zorunlu ama asıl güvence
+      // burada — elle hazırlanmış bir istek de bu yoldan geçmek zorunda.
+      consents: {
+        create: CONSENT_KINDS.map((kind) => ({ kind, version: CONSENT_VERSION })),
+      },
     },
     select: { id: true, name: true, role: true },
   });

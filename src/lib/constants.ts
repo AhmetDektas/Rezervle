@@ -29,6 +29,24 @@ export type Channel = (typeof CHANNELS)[number];
 export const BUSINESS_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] as const;
 export type BusinessStatus = (typeof BUSINESS_STATUSES)[number];
 
+/**
+ * KVKK kayıtları.
+ *
+ * İki ayrı şey: aydınlatma bir yükümlülük (bilgilendirdik mi?), açık rıza bir
+ * izin (verdi mi?). Tek kutuyla ikisi birden alınıyor ama kayıt ayrı tutuluyor
+ * çünkü geri alınabilen yalnızca rıza; aydınlatmanın geri alınması diye bir şey
+ * yok. Aynı satırda tutulsalardı rıza geri alındığında aydınlatma kaydı da
+ * kaybolurdu.
+ */
+export const CONSENT_KINDS = ['AYDINLATMA', 'ACIK_RIZA'] as const;
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+
+/**
+ * Yürürlükteki metin sürümü. Aydınlatma metni değişirse burası da değişir;
+ * eski kayıtlar hangi metne onay verildiğini göstermeye devam eder.
+ */
+export const CONSENT_VERSION = '2026-09-05';
+
 export const SECTORS = [
   'RESTAURANT',
   'BEAUTY',

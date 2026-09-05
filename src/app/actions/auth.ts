@@ -2,13 +2,14 @@
 
 import { prisma } from '@/lib/db';
 import { loginSchema, registerSchema, businessRegisterSchema, fieldErrors } from '@/lib/validation';
-import { hashPassword, verifyPassword } from '@/server/auth';
+import { verifyPassword } from '@/server/auth';
 import { setSessionCookie, clearSessionCookie } from '@/server/session';
 import { DomainError, run, type ActionResult } from '@/server/errors';
 import type { Role } from '@/lib/constants';
 import { notifyUser } from '@/server/notifications';
 import { activePlatformPromotion, welcomeBody } from '@/server/promotions';
 import { submitBusinessApplication } from '@/server/business-application';
+import { createAccount } from '@/server/accounts';
 
 export type AuthResult = ActionResult<{ role: Role }> & { fields?: Record<string, string> };
 
@@ -40,25 +41,23 @@ export async function registerAction(formData: FormData): Promise<AuthResult> {
     email: formData.get('email'),
     phone: formData.get('phone') || '',
     password: formData.get('password'),
+    kvkk: formData.get('kvkk') === 'on',
   });
   if (!parsed.success) {
     return { ok: false, error: 'Lütfen formu kontrol edin.', fields: fieldErrors(parsed.error) };
   }
 
   return run(async () => {
-    const exists = await prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } });
-    if (exists) throw new DomainError('Bu e-posta ile kayıtlı bir hesap zaten var.', 'EMAIL_TAKEN');
-
-    const user = await prisma.user.create({
-      data: {
-        email: parsed.data.email,
-        name: parsed.data.name,
-        phone: parsed.data.phone || null,
-        passwordHash: await hashPassword(parsed.data.password),
-        role: 'CUSTOMER',
-        avatarSeed: String(Math.floor(Math.random() * 24)),
-        customerProfile: { create: {} },
-      },
+    // Hesap kurulumu createAccount'ta: e-posta tekilliği, parola özeti, rol,
+    // müşteri profili ve KVKK rıza kaydı iki kayıt yolunda da aynı yerden
+    // geçsin diye. Burada kopyalandığı sürece rıza yalnızca işletme
+    // başvurusunda yazılıyordu ve müşteri yolu sessizce dışarıda kalıyordu.
+    const user = await createAccount({
+      name: parsed.data.name,
+      email: parsed.data.email,
+      phone: parsed.data.phone || null,
+      password: parsed.data.password,
+      role: 'CUSTOMER',
     });
     // Karşılama metni kampanya tablosundan üretilir: kod, tutar ve alt limit
     // tek kaynaktan gelir. Kampanya kapatılırsa bildirim de ondan bahsetmez.

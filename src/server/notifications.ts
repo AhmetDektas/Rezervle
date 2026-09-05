@@ -31,9 +31,24 @@ export async function notifyUser(
   if (input.alsoSend) {
     const user = await tx.user.findUnique({
       where: { id: input.userId },
-      select: { email: true, phone: true, name: true },
+      select: {
+        email: true,
+        phone: true,
+        name: true,
+        customerProfile: { select: { smsOptIn: true, emailOptIn: true } },
+      },
     });
     if (user) {
+      // İletişim tercihleri profilde kaydediliyordu ama burada hiç okunmuyordu:
+      // "SMS ile randevu hatırlatması al" kutusunu kapatan kullanıcıya SMS
+      // gitmeye devam ediyordu. Kutunun kendisi vaat, gönderim ise vaadin
+      // tutulduğu tek yer.
+      //
+      // Profili olmayan hesaplar (işletme sahibi, personel, yönetici) için
+      // tercih yok: operasyonel bildirim almaları gerekiyor, varsayılan açık.
+      const prefs = user.customerProfile;
+      const email = prefs && !prefs.emailOptIn ? null : user.email;
+      const phone = prefs && !prefs.smsOptIn ? null : user.phone;
       // E-posta/SMS gönderimi asıl işlemin başarı şartı DEĞİLDİR.
       //
       // Konsol adaptörleri hiç patlamadığı için bu bugüne kadar görünmedi;
@@ -45,10 +60,14 @@ export async function notifyUser(
       // Uygulama içi bildirim yukarıda zaten yazıldı; kullanıcı randevusunu
       // /bildirimler ve /randevularim üzerinden görmeye devam eder. Kanal
       // gönderimi başarısızsa uyarı olarak loglanır ve akış kesilmez.
+      // İki kanal da kapalıysa sağlayıcıya hiç gitmiyoruz: gerçek SMTP/SMS
+      // bağlandığında boş bir çağrı da ağ turu ve olası hata demek.
+      if (!email && !phone) return;
+
       try {
         await notifyChannels({
-          email: user.email,
-          phone: user.phone,
+          email,
+          phone,
           name: user.name,
           subject: input.title,
           body: input.body ?? input.title,

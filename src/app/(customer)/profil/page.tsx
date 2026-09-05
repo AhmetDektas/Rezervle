@@ -7,23 +7,29 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { ProfileForm } from '@/components/shell/profile-form';
+import { ConsentPanel } from '@/components/shell/consent-panel';
 import { ROLE_LABEL } from '@/lib/constants';
+import { consentSummary } from '@/server/consent';
+import { longDate } from '@/lib/format';
+import { utcToDateStr } from '@/lib/time';
 
 export const metadata: Metadata = { title: 'Profilim' };
 export const dynamic = 'force-dynamic';
 
 export default async function ProfilePage() {
   const user = await requireUser('/profil');
-  const [profile, counts] = await Promise.all([
+  const [profile, counts, consents] = await Promise.all([
     prisma.customerProfile.findUnique({ where: { userId: user.id } }),
     prisma.$transaction([
       prisma.reservation.count({ where: { customerId: user.id } }),
       prisma.favorite.count({ where: { userId: user.id } }),
       prisma.notification.count({ where: { userId: user.id, readAt: null } }),
     ]),
+    consentSummary(user.id),
   ]);
 
   const [reservations, favorites, unread] = counts;
+  const acikRiza = consents.find((c) => c.kind === 'ACIK_RIZA');
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-5 sm:px-6 sm:py-7">
@@ -70,6 +76,20 @@ export default async function ProfilePage() {
               smsOptIn: profile?.smsOptIn ?? true,
               emailOptIn: profile?.emailOptIn ?? true,
             }}
+          />
+        </CardBody>
+      </Card>
+
+      <Card className="mt-5">
+        <CardHeader
+          title="Kişisel verileriniz"
+          description="Rızanızı istediğiniz zaman geri alabilirsiniz (KVKK m.7)."
+        />
+        <CardBody>
+          <ConsentPanel
+            granted={Boolean(acikRiza && !acikRiza.revokedAt)}
+            grantedAt={acikRiza ? longDate(utcToDateStr(acikRiza.grantedAt)) : null}
+            version={acikRiza?.version ?? null}
           />
         </CardBody>
       </Card>
