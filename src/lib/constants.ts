@@ -214,6 +214,26 @@ export const SLOT_STEP_MIN = 15;
 /** İleriye dönük rezervasyon penceresi (gün). */
 export const BOOKING_HORIZON_DAYS = 60;
 
+/**
+ * 3DS için tanınan süre (dakika).
+ *
+ * Müşteri bankanın sayfasına gittiği anda saat ona ayrılmış durumda. Süre
+ * dolduğunda kayıt iptal edilip saat yeniden satışa açılıyor (T5).
+ *
+ * 15 dakika: SMS ile gelen 3DS kodunu girmek için fazlasıyla yeterli, ama
+ * popüler bir saatin yarım gün kilitli kalmasına da izin vermiyor. Kısası
+ * gerçekten ödeyecek müşteriyi keser, uzunu saati boşa yakar.
+ */
+export const PAYMENT_DEADLINE_MIN = 15;
+
+/**
+ * Uygulamanın kendi adresi. Ödeme sağlayıcısına "müşteriyi buraya geri
+ * gönder" derken gerekiyor; sağlayıcı bizim tarafımızı tahmin edemez.
+ */
+export function appUrl(): string {
+  return process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000';
+}
+
 /** Randevuya bu süreden az kaldıysa müşteri kendi iptal/erteleme yapamaz. */
 export const CUSTOMER_CHANGE_CUTOFF_MIN = 120;
 

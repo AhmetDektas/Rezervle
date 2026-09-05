@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { prisma } from '@/lib/db';
 import { createFixture, resetDatabase, type Fixture } from './fixture';
+import { applyPaymentEvent } from '@/server/payment-events';
 import {
   createReservation,
   setReservationStatus,
@@ -35,6 +36,28 @@ function book(over: Partial<Parameters<typeof createReservation>[0]> = {}) {
     channel: 'ONLINE',
     ...over,
   });
+}
+
+/**
+ * Ödemesi tamamlanmış randevu.
+ *
+ * Kapora artık asenkron (T2): `book()` 3DS bekleyen bir kayıt döndürüyor ve
+ * "ödendi" ancak webhook geldiğinde oluyor. Kapora sonrası davranışı sınayan
+ * testler bu iki adımı birden yapmak zorunda — tek adım varsaymak, üretimde
+ * hiç yaşanmayacak bir durumu test etmek olurdu.
+ */
+async function bookPaid(over: Partial<Parameters<typeof createReservation>[0]> = {}) {
+  const r = await book(over);
+  if (r.depositStatus !== 'PENDING') return r;
+  const payment = await prisma.payment.findUniqueOrThrow({ where: { reservationId: r.id } });
+  await applyPaymentEvent({
+    id: `evt_${r.code}`,
+    type: 'payment.paid',
+    providerRef: payment.providerRef ?? 'mock_ref',
+    reference: r.code,
+  });
+  const guncel = await prisma.reservation.findUniqueOrThrow({ where: { id: r.id } });
+  return { ...r, depositStatus: guncel.depositStatus };
 }
 
 describe('rezervasyon oluşturma', () => {
@@ -377,19 +400,28 @@ describe('kapora', () => {
     expect(r.depositStatus).toBe('NONE');
   });
 
-  it('paket açıkken kapora hesaplanır ve tahsil edilir', async () => {
+  it('paket açıkken kapora hesaplanır ve 3DS beklemeye alınır', async () => {
     await enableDeposit();
     const r = await book();
     expect(r.depositAmount).toBe(200); // 1000 TL'nin %20'si
-    expect(r.depositStatus).toBe('PAID');
+    // Ödeme asenkron: banka onayı gelmeden "ödendi" demiyoruz.
+    expect(r.depositStatus).toBe('PENDING');
+    expect(r.redirectUrl).toBeTruthy();
 
     const payment = await prisma.payment.findUnique({ where: { reservationId: r.id } });
     expect(payment?.providerRef).toContain('mock_');
+    expect(payment?.status).toBe('PENDING');
+  });
+
+  it('webhook geldikten sonra kapora ÖDENDİ olur', async () => {
+    await enableDeposit();
+    const r = await bookPaid();
+    expect(r.depositStatus).toBe('PAID');
   });
 
   it('kapora oranı sonradan değişse bile alınmış tutar sabit kalır', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await prisma.business.update({
       where: { id: f.business.id },
       data: { depositValue: 50 },
@@ -400,7 +432,7 @@ describe('kapora', () => {
 
   it('erken iptalde kapora iade edilir', async () => {
     await enableDeposit({ depositRefundHours: 1 });
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'CANCELLED', actorId: f.customer.id });
 
     const after = await prisma.reservation.findUnique({ where: { id: r.id } });
@@ -413,7 +445,7 @@ describe('kapora', () => {
   it('geç iptalde kapora gelir yazılır', async () => {
     // İade penceresi çok geniş: yarınki randevu her hâlükârda "geç" sayılır.
     await enableDeposit({ depositRefundHours: 500 });
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'CANCELLED', actorId: f.customer.id });
     const after = await prisma.reservation.findUnique({ where: { id: r.id } });
     expect(after?.depositStatus).toBe('FORFEITED');
@@ -421,7 +453,7 @@ describe('kapora', () => {
 
   it('gelmedi işaretlenince kapora gelir yazılır', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'NO_SHOW', actorId: f.owner.id });
     const after = await prisma.reservation.findUnique({ where: { id: r.id } });
     expect(after?.depositStatus).toBe('FORFEITED');
@@ -429,7 +461,7 @@ describe('kapora', () => {
 
   it('kapora alt limitinin altındaki randevuda kapora istenmez', async () => {
     await enableDeposit({ depositMinPrice: 5000 });
-    const r = await book();
+    const r = await bookPaid();
     expect(r.depositAmount).toBe(0);
   });
 });
@@ -455,7 +487,7 @@ describe('komisyon ve hak ediş', () => {
 
   it('tahsilat anında bölünür ve işletme payı bloke başlar', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     const p = await payment(r.id);
     expect(p?.amount).toBe(1000); // toplam borç
     expect(p?.capturedAmount).toBe(300); // uygulamadan tahsil edilen kapora
@@ -469,7 +501,7 @@ describe('komisyon ve hak ediş', () => {
 
   it('gelmedi işaretlenince hak ediş yazılır, komisyon platformda kalır', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'NO_SHOW', actorId: f.owner.id });
     const p = await payment(r.id);
     expect(p?.settlementStatus).toBe('RELEASED');
@@ -480,14 +512,14 @@ describe('komisyon ve hak ediş', () => {
 
   it('tamamlanınca da hak ediş yazılır', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'COMPLETED', actorId: f.owner.id });
     expect((await payment(r.id))?.settlementStatus).toBe('RELEASED');
   });
 
   it('zamanında iptalde komisyon da geri alınır', async () => {
     await enableDeposit({ depositRefundHours: 1 });
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'CANCELLED', actorId: f.customer.id });
     const p = await payment(r.id);
     expect(p?.settlementStatus).toBe('REFUNDED');
@@ -498,7 +530,7 @@ describe('komisyon ve hak ediş', () => {
 
   it('geç iptalde kapora işletmede kalır ve komisyon alınır', async () => {
     await enableDeposit({ depositRefundHours: 500 });
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'CANCELLED', actorId: f.customer.id });
     const p = await payment(r.id);
     expect(p?.settlementStatus).toBe('RELEASED');
@@ -507,7 +539,7 @@ describe('komisyon ve hak ediş', () => {
 
   it('komisyon oranı sonradan değişse bile geçmiş tahsilat bölünmesi sabit kalır', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await prisma.business.update({ where: { id: f.business.id }, data: { commissionRate: 50 } });
     const p = await payment(r.id);
     expect(p?.commissionRate).toBe(30);
@@ -515,7 +547,7 @@ describe('komisyon ve hak ediş', () => {
   });
 
   it('kapora yoksa komisyon da yoktur', async () => {
-    const r = await book();
+    const r = await bookPaid();
     const p = await payment(r.id);
     expect(p?.commissionAmount).toBe(0);
     expect(p?.settlementStatus).toBe('NONE');
@@ -523,7 +555,7 @@ describe('komisyon ve hak ediş', () => {
 
   it('sonuçlanmış tahsilat ikinci kez hareket etmez', async () => {
     await enableDeposit();
-    const r = await book();
+    const r = await bookPaid();
     await setReservationStatus({ id: r.id, to: 'NO_SHOW', actorId: f.owner.id });
     const first = await payment(r.id);
     await setReservationStatus({ id: r.id, to: 'COMPLETED', actorId: f.owner.id });

@@ -47,6 +47,11 @@ export function redisConnection(): IORedis {
  */
 type QueueLike<T> = {
   add(name: string, data: T, opts?: JobsOptions): Promise<unknown>;
+  upsertJobScheduler(
+    id: string,
+    repeat: { every: number },
+    template?: { name?: string; data?: T },
+  ): Promise<unknown>;
 };
 
 export type JobDefinition<T> = {
@@ -62,8 +67,26 @@ export type DefinedJob<T> = {
   name: string;
   /** İşi kuyruğa atar. Kuyruk erişilemezse hata YÜKSELMEZ; yan etki loglanır. */
   enqueue: (payload: T, options?: JobsOptions) => Promise<void>;
+  /**
+   * Belirli aralıkla kendiliğinden çalışacak şekilde kurar.
+   *
+   * BullMQ 6'da tekrarlayan iş `upsertJobScheduler` ile tanımlanıyor (v5'teki
+   * `repeat` seçeneği kaldırıldı). "Upsert" olması önemli: worker her
+   * açılışında çağrılabilir, kopya zamanlama oluşmaz.
+   *
+   * Kuyruk erişilemezse hata YÜKSELMEZ; `enqueue` ile aynı sözleşme.
+   */
+  schedule: (everyMs: number, payload: T) => Promise<void>;
   /** Worker'ı başlatır. Yalnızca worker sürecinde çağrılır. */
   start: () => Worker<T, void, string>;
+  /**
+   * İşin gövdesi, kuyruk olmadan.
+   *
+   * Testler için: bir işin doğru şeyi yaptığını sınamak, BullMQ'nun işi
+   * teslim ettiğini sınamaktan farklı bir soru. İkisini ayırmazsak her iş
+   * testi Redis'e ve zamanlamaya bağımlı hâle gelir.
+   */
+  run: (payload: T, ctx?: LogContext) => Promise<void>;
 };
 
 const registry: DefinedJob<unknown>[] = [];
@@ -102,6 +125,21 @@ export function defineJob<T>(def: JobDefinition<T>): DefinedJob<T> {
       } catch (err) {
         logSideEffectFailure({ action: `job:${def.name}:enqueue` }, err);
       }
+    },
+
+    async schedule(everyMs, payload) {
+      try {
+        await q().upsertJobScheduler(`${def.name}-tekrar`, { every: everyMs }, {
+          name: def.name,
+          data: payload,
+        });
+      } catch (err) {
+        logSideEffectFailure({ action: `job:${def.name}:schedule` }, err);
+      }
+    },
+
+    async run(payload, ctx) {
+      await def.handler(payload, ctx ?? { action: `job:${def.name}` });
     },
 
     start() {

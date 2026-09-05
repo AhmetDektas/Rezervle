@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 /**
  * Sağlayıcı adaptörleri.
@@ -83,6 +84,8 @@ export type ChargeInput = {
   amount: number;
   currency: string;
   reference: string;
+  /** 3DS bitince müşterinin geri döneceği adres. */
+  returnUrl: string;
   /** Pazaryeri bölüşümü. subMerchantKey yoksa tahsilat tek parça alınır. */
   split?: {
     commission: number;
@@ -90,26 +93,69 @@ export type ChargeInput = {
   };
 };
 
+/**
+ * Tahsilat sonucu.
+ *
+ * `PENDING` gerçek dünyanın varsayılanı: Türkiye'de kart ödemesi 3D Secure'dan
+ * geçiyor, müşteri bankanın sayfasına gidiyor ve sonuç bize **webhook ile**
+ * dönüyor. Eskiden `charge()` senkron `PAID` döndürüyordu; bu, ödemenin
+ * sonucunu bilmeden bildiğimizi varsaymak demekti.
+ *
+ * `PAID` yine mümkün (3DS'siz kart, sıfır tutar) ama artık istisna.
+ */
 export type ChargeResult =
   | { status: 'PAID'; providerRef: string }
+  | { status: 'PENDING'; providerRef: string; redirectUrl: string }
   | { status: 'FAILED'; reason: string };
 
 export type SettlementResult = { ok: boolean; reason?: string };
 
+/**
+ * Sağlayıcıdan gelen olay.
+ *
+ * `id` idempotens anahtarı: teslimat garantisi "en az bir kez" olduğu için
+ * aynı olay iki kez gelebilir ve ikinci teslimat kaporayı iki kez işlememeli.
+ */
+export type WebhookEvent = {
+  id: string;
+  type: 'payment.paid' | 'payment.failed';
+  providerRef: string;
+  /** Bizim tarafımızdaki referans: rezervasyon kodu. */
+  reference: string;
+  reason?: string;
+};
+
 export interface PaymentProvider {
   readonly name: string;
-  /** Tahsilat. İşletme payı bloke olarak başlar. */
+  /** Tahsilat başlatır. Genellikle 3DS'e yönlendirir; sonuç webhook'la gelir. */
   charge(input: ChargeInput): Promise<ChargeResult>;
   /** Blokeyi çözer: işletme payı hak ediş olarak yazılır. */
   release(providerRef: string): Promise<SettlementResult>;
   /** Tam iade. Komisyon da geri alınır; platform kazanmaz. */
   refund(providerRef: string): Promise<SettlementResult>;
+  /**
+   * Webhook gövdesini doğrular ve olaya çevirir. İmza geçersizse `null`.
+   *
+   * Ham gövde üzerinden çalışıyor: JSON'a çevirip yeniden dizmek anahtar
+   * sırasını ve boşlukları değiştirir, imza tutmaz.
+   */
+  verifyWebhook(rawBody: string, signature: string | null): WebhookEvent | null;
 }
 
 /**
- * Sahte sağlayıcı. Kart verisi almaz, gerçek para hareketi yoktur; yalnızca
- * durum geçişlerini taklit eder ki akış uçtan uca denenebilsin.
+ * Sahte sağlayıcı (T17).
+ *
+ * Kart verisi almaz, gerçek para hareketi yoktur. Amacı akışın **şeklini**
+ * taklit etmek: 3DS yönlendirmesi, webhook'la gelen sonuç, imza doğrulaması
+ * ve terk senaryosu. Senkron `PAID` döndüren eski sahte sağlayıcı, üretimde
+ * asla yaşanmayacak bir akışı test ediyordu.
  */
+const MOCK_SECRET = 'mock-webhook-secret';
+
+export function mockSignature(rawBody: string): string {
+  return createHmac('sha256', MOCK_SECRET).update(rawBody).digest('hex');
+}
+
 const mockPayments: PaymentProvider = {
   name: 'mock',
   async charge(input) {
@@ -117,7 +163,13 @@ const mockPayments: PaymentProvider = {
     if (input.split && input.split.commission > input.amount) {
       return { status: 'FAILED', reason: 'Komisyon tahsilattan büyük olamaz.' };
     }
-    return { status: 'PAID', providerRef: `mock_${input.reference}_${Date.now()}` };
+    const providerRef = `mock_${input.reference}_${Date.now()}`;
+    // Gerçek sağlayıcı bankanın 3DS sayfasına yönlendirir; burada kendi
+    // taklit sayfamıza gidiyoruz ki akış uçtan uca denenebilsin.
+    const url = new URL('/odeme/3ds', input.returnUrl);
+    url.searchParams.set('ref', providerRef);
+    url.searchParams.set('kod', input.reference);
+    return { status: 'PENDING', providerRef, redirectUrl: url.toString() };
   },
   async release(providerRef) {
     if (!providerRef) return { ok: false, reason: 'Ödeme referansı yok.' };
@@ -126,6 +178,24 @@ const mockPayments: PaymentProvider = {
   async refund(providerRef) {
     if (!providerRef) return { ok: false, reason: 'Ödeme referansı yok.' };
     return { ok: true };
+  },
+  verifyWebhook(rawBody, signature) {
+    if (!signature) return null;
+    const beklenen = mockSignature(rawBody);
+    // timingSafeEqual eşit uzunluk istiyor; farklı uzunluk zaten geçersiz.
+    if (signature.length !== beklenen.length) return null;
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(beklenen))) return null;
+
+    const veri = JSON.parse(rawBody) as Partial<WebhookEvent>;
+    if (!veri.id || !veri.type || !veri.providerRef || !veri.reference) return null;
+    if (veri.type !== 'payment.paid' && veri.type !== 'payment.failed') return null;
+    return {
+      id: veri.id,
+      type: veri.type,
+      providerRef: veri.providerRef,
+      reference: veri.reference,
+      ...(veri.reason ? { reason: veri.reason } : {}),
+    };
   },
 };
 

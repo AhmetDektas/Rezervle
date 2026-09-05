@@ -350,7 +350,18 @@ model Reservation {
   // Kapora, randevu anında hesaplanıp dondurulur: işletme sonradan oranı
   // değiştirse bile alınmış kapora değişmez.
   depositAmount Int    @default(0)
-  depositStatus String @default("NONE") // NONE | PAID | REFUNDED | FORFEITED
+  // NONE: kapora yok · PENDING: 3DS bekleniyor · PAID · REFUNDED · FORFEITED
+  depositStatus String @default("NONE")
+
+  // 3DS asenkron: musteri banka sayfasina gidiyor ve geri donmeyebilir.
+  // O sirada saat bu kayda ayrilmis durumda. Bu tarih, odemesi tamamlanmayan
+  // kaydin saatinin ne zaman serbest birakilacagini soyluyor (T5).
+  // Odeme tamamlanınca null'a cekilir: dolu bir alan "hala bekliyor" demek.
+  paymentDeadline DateTime?
+
+  // Hatirlatma gonderildiginde damgalanir. BullMQ isi yeniden denerse ayni
+  // randevu icin ikinci SMS gitmesin diye (T10).
+  reminderSentAt DateTime?
 
   // Veritabani duzeyinde cift rezervasyon kilidi. Aktif kayitlarda
   // "staffId:date:startMin" degerini tutar; iptalde null yapilir
@@ -369,6 +380,11 @@ model Reservation {
   @@index([branchId, date])
   @@index([customerId, startsAt])
   @@index([status])
+  // E7: zamanlanmis islerin sorgulari. Ikisi de "su tarihten once ve henuz
+  // islenmemis" deseninde tarama yapiyor; indekssiz her kosuda tum tabloyu
+  // gezerlerdi ve randevu tablosu en hizli buyuyen tablo.
+  @@index([paymentDeadline])
+  @@index([startsAt, reminderSentAt])
 }
 
 model ReservationStatusHistory {
@@ -477,6 +493,23 @@ model Promotion {
   reservations Reservation[]
 
   @@index([businessId, active])
+}
+
+/**
+ * Webhook idempotens kaydi (T3).
+ * Odeme kuruluslarinin teslimat garantisi "en az bir kez": ayni olay iki kez
+ * gelebilir. Kaydi olmadan ikinci teslimat kaporayi iki kez isler — musteri
+ * bir kez odedi ama sistemde iki tahsilat gorunur.
+ * Birincil anahtar saglayicinin olay kimligi: ayni olayi ikinci kez yazmak
+ * unique kisitina carpar ve bu "zaten islendi" demektir.
+ */
+model ProcessedEvent {
+  id          String   @id
+  type        String
+  reference   String?
+  processedAt DateTime @default(now())
+
+  @@index([processedAt])
 }
 
 model Consent {

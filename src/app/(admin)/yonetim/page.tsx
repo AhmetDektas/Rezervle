@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { money, ago, longDate } from '@/lib/format';
 import { today, addDays } from '@/lib/time';
 import { BUSINESS_STATUS_LABEL, type BusinessStatus } from '@/lib/constants';
+import { queueHealth } from '@/server/queue-health';
 
 export const metadata: Metadata = { title: 'Yönetim' };
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,10 @@ export default async function AdminHome() {
   const t = today();
   const from = addDays(t, -29);
 
-  const [businesses, pendingBusinesses, users, reservations, revenue, reported, recent] =
+  const [kuyruk, [businesses, pendingBusinesses, users, reservations, revenue, reported, recent]] =
     await Promise.all([
+      queueHealth(),
+      Promise.all([
       prisma.business.count(),
       prisma.business.findMany({
         where: { status: 'PENDING' },
@@ -38,6 +41,7 @@ export default async function AdminHome() {
         take: 8,
         include: { business: { select: { name: true, slug: true } }, actor: { select: { name: true } } },
       }),
+      ] as const),
     ]);
 
   return (
@@ -55,6 +59,30 @@ export default async function AdminHome() {
         <StatCard label="Randevu (30 gün)" value={String(reservations)} icon={<CalendarDays size={16} />} />
         <StatCard label="İşlem hacmi (30 gün)" value={money(revenue._sum.finalPrice ?? 0)} tone="money" icon={<Wallet size={16} />} />
       </div>
+
+      {/* Kuyruk sessizdir: iş tükenir ve kimse fark etmez. GAP-1'de bildirim
+          hatalarını kuyruğa düşürmeye karar verdik; bu uyarı o kararın
+          zorunlu eşlikçisi (S8-1). */}
+      {kuyruk.alarm ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-danger-line bg-danger-soft p-4">
+          <AlertTriangle size={19} className="shrink-0 text-danger" aria-hidden />
+          <p className="flex-1 text-[14px] text-danger">
+            <span className="font-semibold">{kuyruk.toplamOlu} arka plan işi</span> yeniden
+            denemeleri tükendikten sonra ölü mektup kutusunda bekliyor. Bildirimler ve ödeme
+            temizliği etkilenmiş olabilir.
+          </p>
+        </div>
+      ) : null}
+
+      {!kuyruk.erisilebilir ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-warn-line bg-warn-soft p-4">
+          <AlertTriangle size={19} className="shrink-0 text-warn" aria-hidden />
+          <p className="flex-1 text-[14px] text-warn">
+            Kuyruk durumu okunamadı (Redis erişilemiyor). Arka plan işleri şu anda
+            çalışmıyor olabilir.
+          </p>
+        </div>
+      ) : null}
 
       {reported > 0 ? (
         <Link

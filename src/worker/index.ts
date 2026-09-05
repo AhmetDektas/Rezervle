@@ -1,6 +1,9 @@
 import 'server-only';
 import type { Worker } from 'bullmq';
 import { definedJobs, redisConnection } from './define-job';
+// Isler kendini defineJob ile kaydediyor; kayit yalnizca modul import
+// edilirse olusuyor. Bu import olmadan worker acilmadan kapanirdi.
+import { scheduleRecurring } from './jobs';
 import { logError } from '@/server/log';
 
 /**
@@ -70,6 +73,12 @@ export async function shutdownWorkers(workers: Worker[]): Promise<void> {
 /** Süreç doğrudan çalıştırıldığında (npm run worker). */
 export function main(): void {
   const workers = startWorkers();
+  // Tekrarlayan işleri kur. Hata kapanışa sebep olmamalı: tarama işi
+  // gecikirse saatler biraz geç serbest kalır, worker'ın hiç açılmaması
+  // ise tüm arka plan işlerini durdururdu.
+  void scheduleRecurring().catch((err: unknown) =>
+    logError({ action: 'worker:scheduleRecurring' }, err),
+  );
   let closing = false;
 
   const stop = (signal: string) => {

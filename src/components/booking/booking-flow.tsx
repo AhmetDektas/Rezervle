@@ -200,6 +200,12 @@ export function BookingFlow({
       toast.error(result.error);
       return;
     }
+    // 3DS gerekiyorsa randevu HENÜZ kesinleşmedi: "oluşturuldu" demek yalan
+    // olurdu. Müşteri bankaya gidiyor, sonucu webhook getiriyor.
+    if (result.data.redirectUrl) {
+      window.location.href = result.data.redirectUrl;
+      return;
+    }
     toast.success('Randevunuz oluşturuldu', `Kod: ${result.data.code}`);
     router.push(`/randevularim/${result.data.reservationId}?yeni=1`);
     router.refresh();

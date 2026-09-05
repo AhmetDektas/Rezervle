@@ -13,6 +13,8 @@ import {
   type ReservationStatus,
   CUSTOMER_CHANGE_CUTOFF_MIN,
   RESERVATION_STATUS_LABEL,
+  PAYMENT_DEADLINE_MIN,
+  appUrl,
 } from '@/lib/constants';
 import { getDayAvailability, ONLINE_LEAD_MIN, STAFF_LEAD_MIN } from './schedule';
 import { depositPolicyFor } from './deposit-policy';
@@ -39,6 +41,13 @@ export type CreateReservationInput = {
   /** Panelden açılan kayıtlar doğrudan onaylı başlar. */
   autoConfirm?: boolean;
   actorId?: string | null;
+  /** Saat dişi (S6-2). Ödeme son tarihi ve geçmiş tarih kontrolü buna bakar. */
+  now?: Date;
+  /**
+   * 3DS sonrası dönülecek kaynak. İstek bağlamını bilen çağıran veriyor;
+   * sabit `appUrl()` farklı portta çalışırken yanlış sunucuya yönlendirirdi.
+   */
+  returnUrl?: string;
 };
 
 export function slotKeyOf(staffId: string, date: string, startMin: number): string {
@@ -134,6 +143,7 @@ export async function quoteBooking(args: {
  * `slotKey` benzersiz kısıtı çifte kaydı veritabanı düzeyinde engeller.
  */
 export async function createReservation(input: CreateReservationInput) {
+  const clock = input.now ?? new Date();
   const [business, service, branch] = await Promise.all([
     prisma.business.findUnique({
       where: { id: input.businessId },
@@ -188,7 +198,7 @@ export async function createReservation(input: CreateReservationInput) {
     );
   }
 
-  const horizon = diffDays(input.date, today());
+  const horizon = diffDays(input.date, today(clock));
   if (horizon < 0) throw new DomainError('Geçmiş bir tarihe randevu oluşturulamaz.', 'PAST_DATE');
   if (horizon > BOOKING_HORIZON_DAYS) {
     throw new DomainError(
@@ -312,8 +322,20 @@ export async function createReservation(input: CreateReservationInput) {
     });
 
   // Kapora slot ayrıldıktan sonra tahsil edilir: önce yeri tutuyoruz ki ödeme
-  // sırasında saat başkasına gitmesin. Tahsilat başarısızsa kayıt geri alınır
-  // ve saat yeniden açılır — ödemesi alınmamış bir randevu asla durmaz.
+  // sırasında saat başkasına gitmesin.
+  //
+  // Tahsilat artık ASENKRON: gerçek kart ödemesi 3DS'ten geçiyor, müşteri
+  // bankanın sayfasına gidiyor ve sonucu webhook getiriyor. Bu yüzden burada
+  // "ödendi" diyemiyoruz; yalnızca "başlatıldı" diyebiliyoruz.
+  //
+  //   charge() ──▶ PENDING + redirectUrl ──▶ müşteri bankaya gider
+  //                     │                              │
+  //                     │                       webhook payment.paid
+  //                     ▼                              ▼
+  //            paymentDeadline kuruldu          depositStatus = PAID
+  //                     │
+  //                     └── süre dolarsa (T5) ──▶ iptal, saat yeniden açılır
+  let redirectUrl: string | null = null;
   if (created.depositAmount > 0) {
     // Pazaryeri bölüşümü: platform payı ödeme anında ayrılır, işletme payı
     // ödeme kuruluşunda bloke başlar. Oran kayda dondurulur.
@@ -322,9 +344,11 @@ export async function createReservation(input: CreateReservationInput) {
       amount: created.depositAmount,
       currency: 'TRY',
       reference: created.code,
+      returnUrl: input.returnUrl ?? appUrl(),
       split: { commission: split.commission, subMerchantKey: business.subMerchantKey },
     });
-    if (charge.status !== 'PAID') {
+
+    if (charge.status === 'FAILED') {
       await prisma.reservation.update({
         where: { id: created.id },
         data: {
@@ -339,26 +363,56 @@ export async function createReservation(input: CreateReservationInput) {
         'DEPOSIT_FAILED',
       );
     }
-    await prisma.$transaction([
-      prisma.reservation.update({
-        where: { id: created.id },
-        data: { depositStatus: 'PAID' },
-      }),
-      prisma.payment.update({
-        where: { reservationId: created.id },
-        data: {
-          providerRef: charge.providerRef,
-          status: 'PAID',
-          paidAt: new Date(),
-          capturedAmount: split.total,
-          commissionRate: split.rate,
-          commissionAmount: split.commission,
-          netAmount: split.net,
-          settlementStatus: 'HELD',
-        },
-      }),
-    ]);
-    created.depositStatus = 'PAID';
+
+    const komisyon = {
+      capturedAmount: split.total,
+      commissionRate: split.rate,
+      commissionAmount: split.commission,
+      netAmount: split.net,
+    };
+
+    if (charge.status === 'PAID') {
+      // 3DS'siz tahsilat: sonuç zaten elimizde.
+      await prisma.$transaction([
+        prisma.reservation.update({
+          where: { id: created.id },
+          data: { depositStatus: 'PAID', paymentDeadline: null },
+        }),
+        prisma.payment.update({
+          where: { reservationId: created.id },
+          data: {
+            providerRef: charge.providerRef,
+            status: 'PAID',
+            paidAt: new Date(),
+            settlementStatus: 'HELD',
+            ...komisyon,
+          },
+        }),
+      ]);
+      created.depositStatus = 'PAID';
+    } else {
+      // 3DS bekleniyor. Saat şimdilik ayrılmış durumda ama süresiz değil.
+      const deadline = new Date(clock.getTime() + PAYMENT_DEADLINE_MIN * 60_000);
+      await prisma.$transaction([
+        prisma.reservation.update({
+          where: { id: created.id },
+          data: { depositStatus: 'PENDING', paymentDeadline: deadline },
+        }),
+        prisma.payment.update({
+          where: { reservationId: created.id },
+          data: { providerRef: charge.providerRef, status: 'PENDING', ...komisyon },
+        }),
+      ]);
+      created.depositStatus = 'PENDING';
+      redirectUrl = charge.redirectUrl;
+    }
+  }
+
+  // Ödeme beklenirken bildirim gönderilmiyor: "randevunuz oluşturuldu" demek,
+  // 15 dakika sonra iptal edilecek bir kayıt için yanlış olurdu. Bildirimi
+  // webhook, ödeme onaylandığında gönderiyor.
+  if (created.depositStatus === 'PENDING') {
+    return { ...created, redirectUrl };
   }
 
   const when = `${longDate(created.date)} ${hhmm(created.startMin)}`;
@@ -377,7 +431,7 @@ export async function createReservation(input: CreateReservationInput) {
     href: `/panel/${created.business.slug}/takvim?tarih=${created.date}`,
   });
 
-  return created;
+  return { ...created, redirectUrl };
 }
 
 // --- Durum geçişleri -----------------------------------------------------

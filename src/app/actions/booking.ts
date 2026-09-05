@@ -6,6 +6,7 @@ import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction, assertBusinessAccess, currentUser } from '@/server/auth';
 import { getDayAvailability, ONLINE_LEAD_MIN, STAFF_LEAD_MIN } from '@/server/schedule';
 import { RATE_LIMITS, enforceRateLimit } from '@/server/rate-limit';
+import { requestOrigin } from '@/server/request';
 import {
   createReservation,
   rescheduleReservation,
@@ -53,7 +54,15 @@ export async function quoteBookingAction(input: {
   return run(() => quoteBooking(input), { action: 'quoteBookingAction' });
 }
 
-export type BookingSuccess = { reservationId: string; code: string };
+export type BookingSuccess = {
+  reservationId: string;
+  code: string;
+  /**
+   * 3DS gerekiyorsa bankanın (sahte sağlayıcıda taklit sayfanın) adresi.
+   * Doluysa randevu HENÜZ kesinleşmedi: müşteri buraya gitmeli.
+   */
+  redirectUrl: string | null;
+};
 
 /** Müşteri tarafından randevu oluşturma. */
 export async function createBookingAction(
@@ -92,8 +101,13 @@ export async function createBookingAction(
       promotionCode: parsed.data.promotionCode || undefined,
       paymentMethod: parsed.data.paymentMethod,
       actorId: user.id,
+      returnUrl: await requestOrigin(),
     });
-    return { reservationId: reservation.id, code: reservation.code };
+    return {
+      reservationId: reservation.id,
+      code: reservation.code,
+      redirectUrl: reservation.redirectUrl,
+    };
   }, { action: 'createBookingAction' });
   if (result.ok) {
     revalidatePath('/randevularim');
