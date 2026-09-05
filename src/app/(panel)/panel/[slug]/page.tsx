@@ -9,7 +9,6 @@ import {
   Phone,
   CalendarPlus,
   ArrowRight,
-  CircleAlert,
 } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { requireRole, requireBusinessAccess } from '@/server/auth';
@@ -97,19 +96,6 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
           </Button>
         </div>
       </div>
-
-      {business.status !== 'APPROVED' ? (
-        <div className="flex items-start gap-3 rounded-2xl border border-warn-line bg-warn-soft p-4">
-          <CircleAlert size={19} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-          <div>
-            <p className="text-[14px] font-semibold text-warn">İşletmeniz henüz yayında değil</p>
-            <p className="mt-0.5 text-[13.5px] text-warn/90">
-              Platform onayı tamamlanana kadar müşteriler işletmenizi göremez ve online randevu
-              oluşturamaz. Panelde hazırlık yapmaya devam edebilirsiniz.
-            </p>
-          </div>
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

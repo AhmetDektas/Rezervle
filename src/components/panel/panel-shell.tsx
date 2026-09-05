@@ -19,6 +19,8 @@ import {
   Menu,
   X,
   LogOut,
+  Clock3,
+  AlertTriangle,
 } from 'lucide-react';
 import { Logo, LogoMark } from '@/components/brand/logo';
 import { Avatar } from '@/components/ui/avatar';
@@ -113,14 +115,19 @@ export function PanelShell({
           <BusinessSwitcher business={business} businesses={businesses} />
 
           <div className="ml-auto flex items-center gap-1">
-            <Link
-              href={`/isletme/${business.slug}`}
-              target="_blank"
-              className="hidden h-10 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium text-ink-2 transition hover:bg-sunken hover:text-navy sm:flex"
-            >
-              <ExternalLink size={15} aria-hidden />
-              Sayfayı gör
-            </Link>
+            {/* Onaylanmamış işletmenin herkese açık sayfası yok (404 döner);
+                bağlantıyı göstermek yeni kaydolan her sahibi kırık bir sayfaya
+                götürürdü. */}
+            {business.status === 'APPROVED' ? (
+              <Link
+                href={`/isletme/${business.slug}`}
+                target="_blank"
+                className="hidden h-10 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium text-ink-2 transition hover:bg-sunken hover:text-navy sm:flex"
+              >
+                <ExternalLink size={15} aria-hidden />
+                Sayfayı gör
+              </Link>
+            ) : null}
             <Link
               href={`${base}/bildirimler`}
               className="relative flex h-10 w-10 items-center justify-center rounded-xl text-ink-2 transition hover:bg-sunken"
@@ -210,9 +217,57 @@ export function PanelShell({
         ) : null}
 
         <main id="icerik" className="min-w-0 flex-1 p-4 sm:p-6">
+          <StatusNotice status={business.status} />
           {children}
         </main>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Onaylanmamış işletme uyarısı.
+ *
+ * Başvuru formu "onaydan sonra yayına alınır" diyor ama panel onaylanmış bir
+ * işletmeyle birebir aynı görünüyordu: yeni kaydolan sahip hizmetlerini girip
+ * müşteri bekliyor, hiçbir yerde işletmesinin henüz görünmediğini yazmıyordu.
+ * Sessiz kalmanın bedeli, ilk gün terk eden bir işletme.
+ */
+function StatusNotice({ status }: { status: string }) {
+  if (status === 'APPROVED') return null;
+
+  const pending = status === 'PENDING';
+  const Icon = pending ? Clock3 : AlertTriangle;
+  return (
+    <div
+      role="status"
+      className={cn(
+        'mb-4 flex items-start gap-3 rounded-2xl border px-4 py-3 text-[13.5px] leading-relaxed',
+        pending
+          ? 'border-warn-line bg-warn-soft text-warn'
+          : 'border-danger-line bg-danger-soft text-danger',
+      )}
+    >
+      <Icon size={17} className="mt-0.5 shrink-0" aria-hidden />
+      <p>
+        {pending ? (
+          <>
+            <span className="font-semibold">Başvurunuz inceleniyor.</span> İşletmeniz onaylanana
+            kadar müşteri tarafında görünmez ve randevu alamaz. Bu sırada hizmetlerinizi,
+            personelinizi ve çalışma saatlerinizi hazırlayabilirsiniz.
+          </>
+        ) : status === 'REJECTED' ? (
+          <>
+            <span className="font-semibold">Başvurunuz onaylanmadı.</span> İşletmeniz yayında
+            değil. Ayrıntı için destek ekibiyle iletişime geçin.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold">İşletmeniz askıya alındı.</span> Yeni randevu
+            alamazsınız. Ayrıntı için destek ekibiyle iletişime geçin.
+          </>
+        )}
+      </p>
     </div>
   );
 }

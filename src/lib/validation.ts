@@ -32,6 +32,26 @@ export const registerSchema = z.object({
   password: passwordSchema,
 });
 
+/**
+ * İşletme başvurusu.
+ *
+ * Alanlar bilinçli olarak az (S11-2): başvuruda yalnızca "kimsiniz ve
+ * neredesiniz" soruluyor. Çalışma saati, hizmet ve personel onaydan sonra
+ * panelde rehberli olarak giriliyor — henüz ürüne güvenmemiş bir işletme
+ * sahibi uzun formu büyük ihtimalle bitirmez.
+ */
+export const businessRegisterSchema = z.object({
+  ownerName: z.string().trim().min(2, 'Adınızı girin.').max(80),
+  email: emailSchema,
+  phone: phoneSchema,
+  password: passwordSchema,
+  businessName: z.string().trim().min(2, 'İşletme adını girin.').max(80),
+  categorySlug: z.string().trim().min(1, 'Kategori seçin.'),
+  district: z.string().trim().min(1, 'Semt seçin.'),
+  address: z.string().trim().min(10, 'Açık adres girin (en az 10 karakter).').max(200),
+  kvkk: z.literal(true, { errorMap: () => ({ message: 'Devam etmek için onay verin.' }) }),
+});
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Parolanızı girin.'),

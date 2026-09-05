@@ -25,6 +25,7 @@ export function SiteFooter() {
         <div>
           <p className="text-[13px] font-semibold text-navy">İşletmeler için</p>
           <ul className="mt-3 space-y-2 text-[13.5px] text-ink-3">
+            <li><Link href="/kayit/isletme" className="hover:text-navy">İşletmenizi ekleyin</Link></li>
             <li><Link href="/panel" className="hover:text-navy">İşletme paneli</Link></li>
             <li><Link href="/giris" className="hover:text-navy">Giriş yap</Link></li>
           </ul>

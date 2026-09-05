@@ -181,7 +181,7 @@ export default function HomePage() {
           </ol>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button asChild><Link href="/kesfet">İşletmeleri keşfet</Link></Button>
-            <Button asChild variant="secondary"><Link href="/panel">İşletme misiniz?</Link></Button>
+            <Button asChild variant="secondary"><Link href="/kayit/isletme">İşletme misiniz?</Link></Button>
           </div>
         </section>
       </div>

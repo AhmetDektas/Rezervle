@@ -1,13 +1,14 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { loginSchema, registerSchema, fieldErrors } from '@/lib/validation';
+import { loginSchema, registerSchema, businessRegisterSchema, fieldErrors } from '@/lib/validation';
 import { hashPassword, verifyPassword } from '@/server/auth';
 import { setSessionCookie, clearSessionCookie } from '@/server/session';
 import { DomainError, run, type ActionResult } from '@/server/errors';
 import type { Role } from '@/lib/constants';
 import { notifyUser } from '@/server/notifications';
 import { activePlatformPromotion, welcomeBody } from '@/server/promotions';
+import { submitBusinessApplication } from '@/server/business-application';
 
 export type AuthResult = ActionResult<{ role: Role }> & { fields?: Record<string, string> };
 
@@ -87,4 +88,54 @@ export async function demoLoginAction(email: string): Promise<AuthResult> {
   fd.set('email', email);
   fd.set('password', 'Rezzerv123');
   return loginAction(fd);
+}
+
+/**
+ * İşletme başvurusu.
+ *
+ * Rezzerv'in arz tarafına açılan tek kapı. Hesap PENDING durumunda oluşur:
+ * işletme panele girip kurulumunu tamamlayabilir ama platform onaylayana
+ * kadar müşteri tarafında görünmez ve rezervasyon alamaz.
+ */
+export async function registerBusinessAction(formData: FormData): Promise<AuthResult> {
+  // Eksik alan null yerine boş dize olarak geçiyor: seçilmemiş bir <select>
+  // (placeholder seçeneği disabled olduğu için) hiç gönderilmiyor ve Zod
+  // kullanıcıya "Expected string, received null" gösteriyordu. Boş dizede
+  // şemanın kendi Türkçe mesajı ("Kategori seçin.") çalışır.
+  const text = (key: string): string => {
+    const value = formData.get(key);
+    return typeof value === 'string' ? value : '';
+  };
+  const parsed = businessRegisterSchema.safeParse({
+    ownerName: text('ownerName'),
+    email: text('email'),
+    phone: text('phone'),
+    password: text('password'),
+    businessName: text('businessName'),
+    categorySlug: text('categorySlug'),
+    district: text('district'),
+    address: text('address'),
+    kvkk: formData.get('kvkk') === 'on',
+  });
+  if (!parsed.success) {
+    return { ok: false, error: 'Lütfen formu kontrol edin.', fields: fieldErrors(parsed.error) };
+  }
+
+  return run(async (ctx) => {
+    const result = await submitBusinessApplication({
+      ownerName: parsed.data.ownerName,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      password: parsed.data.password,
+      businessName: parsed.data.businessName,
+      categorySlug: parsed.data.categorySlug,
+      district: parsed.data.district,
+      address: parsed.data.address,
+    });
+    ctx.userId = result.userId;
+    ctx.meta = { businessId: result.businessId, slug: result.slug, kategori: parsed.data.categorySlug };
+
+    await setSessionCookie({ uid: result.userId, role: 'OWNER', name: parsed.data.ownerName });
+    return { role: 'OWNER' as Role };
+  }, { action: 'registerBusinessAction' });
 }

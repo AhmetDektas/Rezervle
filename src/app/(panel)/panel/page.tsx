@@ -21,8 +21,13 @@ export default async function PanelIndex() {
       <EmptyState
         icon={<Store size={22} />}
         title="Henüz bir işletmeniz yok"
-        description="Hesabınız bir işletmeye bağlı değil. İşletme sahibiyseniz platform yöneticisiyle iletişime geçin."
-        action={<Button asChild variant="secondary"><Link href="/">Müşteri uygulamasına dön</Link></Button>}
+        description="Hesabınız bir işletmeye bağlı değil. İşletmenizi başvuru formundan ekleyebilir, personelseniz işletme sahibinden sizi eklemesini isteyebilirsiniz."
+        action={
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild><Link href="/kayit/isletme">İşletmenizi ekleyin</Link></Button>
+            <Button asChild variant="secondary"><Link href="/">Müşteri uygulamasına dön</Link></Button>
+          </div>
+        }
       />
     </div>
   );
