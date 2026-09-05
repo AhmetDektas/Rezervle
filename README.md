@@ -1,4 +1,4 @@
-# Rezzerv Ananı Sikeyim apo
+# Rezzerv
 
 Çok sektörlü **rezervasyon, müşteri yönetimi ve işletme operasyonları** platformu.
 Müşteri uygulaması, işletme paneli ve platform yönetimi tek bir modüler monolit içinde.
