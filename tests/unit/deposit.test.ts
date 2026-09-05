@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { depositActive, depositFor, refundOnCancel, type DepositPolicy } from '@/lib/deposit';
 
 const policy = (over: Partial<DepositPolicy> = {}): DepositPolicy => ({
+  platformEnabled: true,
   addon: true,
   enabled: true,
   kind: 'PERCENT',

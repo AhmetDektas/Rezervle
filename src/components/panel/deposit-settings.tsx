@@ -10,14 +10,12 @@ import { updateDepositSettingsAction } from '@/app/actions/panel';
 import { depositFor, type DepositPolicy } from '@/lib/deposit';
 import { money } from '@/lib/format';
 
-export type DepositValues = {
-  addon: boolean;
-  enabled: boolean;
-  kind: string;
-  value: number;
-  minPrice: number;
-  refundHours: number;
-};
+/**
+ * Politika alanlarının tamamı. `DepositPolicy` ile birebir aynı olduğu için
+ * yeniden tanımlanmıyor: alan eklenince iki yerde birden güncellemek gerekirdi
+ * ve biri unutulursa tip kontrolü sessiz kalırdı.
+ */
+export type DepositValues = DepositPolicy;
 
 /** Örnek hesap için kullanılan temsilî hizmet ücreti. */
 const SAMPLE_PRICE = 1000;
@@ -44,6 +42,19 @@ export function DepositSettings({
   const [minPrice, setMinPrice] = React.useState(String(initial.minPrice));
   const [refundHours, setRefundHours] = React.useState(String(initial.refundHours));
 
+  if (!initial.platformEnabled) {
+    return (
+      <div className="rounded-2xl border border-warn-line bg-warn-soft p-5">
+        <p className="text-[15px] font-semibold text-warn">Kapora tahsilatı geçici olarak duraklatıldı</p>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-warn/90">
+          Platform genelinde kapora tahsilatı şu anda kapalı. Randevular normal şekilde
+          alınmaya devam ediyor; ödeme işletmenizde yapılıyor. Ayarlarınız korunuyor ve
+          tahsilat yeniden açıldığında kaldığı yerden geçerli olacak.
+        </p>
+      </div>
+    );
+  }
+
   if (!initial.addon) {
     return (
       <div className="rounded-2xl border border-dashed border-line-strong bg-sunken/50 p-5 text-center">
@@ -61,6 +72,10 @@ export function DepositSettings({
   }
 
   const policy: DepositPolicy = {
+    // Önizleme "bu ayarla ne olurdu" sorusunu cevaplar; işletmenin kendi
+    // açma/kapama tercihini yok sayar. Platform şalterini ise yok sayamaz:
+    // şalter kapalıyken kapora hiç tahsil edilmiyor.
+    platformEnabled: initial.platformEnabled,
     addon: true,
     enabled: true,
     kind,

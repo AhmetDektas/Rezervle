@@ -373,8 +373,10 @@ async function main(): Promise<void> {
             const discount = chance(0.12) ? Math.round(service.price * 0.15) : 0;
             const channel = pick(['ONLINE', 'ONLINE', 'PHONE', 'WALK_IN']);
             // Kapora yalnızca online randevularda istenir.
+            // Tohum verisi platform şalterini açık varsayar: amaç kapora
+            // akışının dolu göründüğü gerçekçi bir demo üretmek.
             const policy: DepositPolicy | null = b.deposit
-              ? { ...b.deposit, addon: b.deposit.addon, enabled: b.deposit.enabled }
+              ? { ...b.deposit, platformEnabled: true }
               : null;
             const deposit =
               policy && channel === 'ONLINE' ? depositFor(policy, service.price - discount) : 0;

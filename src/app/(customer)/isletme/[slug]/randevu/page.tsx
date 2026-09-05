@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { currentUser } from '@/server/auth';
+import { depositPolicyFor } from '@/server/deposit-policy';
 import { BookingFlow, type BookingBusiness } from '@/components/booking/booking-flow';
 
 export const dynamic = 'force-dynamic';
@@ -67,14 +68,7 @@ export default async function BookingPage({
   const business: BookingBusiness = {
     ...row,
     sector: row.category.sector,
-    deposit: {
-      addon: row.depositAddon,
-      enabled: row.depositEnabled,
-      kind: row.depositKind,
-      value: row.depositValue,
-      minPrice: row.depositMinPrice,
-      refundHours: row.depositRefundHours,
-    },
+    deposit: depositPolicyFor(row),
     staff: row.staff.map((s) => ({
       id: s.id,
       displayName: s.displayName,

@@ -1,16 +1,25 @@
 /**
  * Kapora hesabı.
  *
- * Kapora, no-show'u azaltmak için satılan bir ek pakettir. İki anahtar vardır:
- * `addon` platformun açtığı paket, `enabled` işletmenin kendi tercihidir.
- * İkisi birden açık olmadan kapora istenmez — böylece paketi almayan bir
- * işletmede özellik hiç görünmez, alan işletme de istediğinde kapatabilir.
+ * Kapora, no-show'u azaltmak için satılan bir ek pakettir. Üç anahtar vardır:
+ * `platformEnabled` platform çapında ana şalter, `addon` platformun o
+ * işletmeye açtığı paket, `enabled` işletmenin kendi tercihidir. Üçü birden
+ * açık olmadan kapora istenmez — böylece paketi almayan bir işletmede özellik
+ * hiç görünmez, alan işletme istediğinde kapatabilir ve bir arıza anında
+ * platform tarafı tek ayarla tüm tahsilatı durdurabilir.
+ *
+ * Ana şalter neden var: gerçek para akarken bir sorun çıkarsa (sağlayıcı
+ * arızası, webhook hatası) kodu geri alıp yeniden dağıtmak dakikalar sürer.
+ * Şalter aynı işi saniyeler içinde yapar ve sistem `İşletmede öde` moduna
+ * düşer — rezervasyon almaya devam edilir, yalnızca tahsilat durur.
  *
  * Saf fonksiyon: veritabanı bilmez, hem rezervasyon akışı hem panel aynı
  * hesabı kullanır.
  */
 
 export type DepositPolicy = {
+  /** Platform çapında ana şalter. Kapalıysa hiçbir işletmede kapora istenmez. */
+  platformEnabled: boolean;
   addon: boolean;
   enabled: boolean;
   kind: string; // PERCENT | AMOUNT
@@ -33,7 +42,7 @@ export const DEPOSIT_STATUS_LABEL: Record<DepositStatus, string> = {
 
 /** İşletmede kapora özelliği fiilen açık mı? */
 export function depositActive(policy: DepositPolicy): boolean {
-  return policy.addon && policy.enabled;
+  return policy.platformEnabled && policy.addon && policy.enabled;
 }
 
 /**

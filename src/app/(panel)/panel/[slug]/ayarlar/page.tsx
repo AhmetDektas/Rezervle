@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExternalLink, MessageSquareQuote } from 'lucide-react';
 import { prisma } from '@/lib/db';
+import { depositPolicyFor } from '@/server/deposit-policy';
 import { requireRole, requireBusinessAccess } from '@/server/auth';
 import { BusinessProfileForm, ReviewReply } from '@/components/panel/business-settings';
 import { GalleryManager } from '@/components/panel/gallery-manager';
@@ -140,14 +141,7 @@ export default async function SettingsPage({ params }: { params: Params }) {
           <DepositSettings
             slug={slug}
             businessId={business.id}
-            initial={{
-              addon: business.depositAddon,
-              enabled: business.depositEnabled,
-              kind: business.depositKind,
-              value: business.depositValue,
-              minPrice: business.depositMinPrice,
-              refundHours: business.depositRefundHours,
-            }}
+            initial={depositPolicyFor(business)}
           />
         </CardBody>
       </Card>

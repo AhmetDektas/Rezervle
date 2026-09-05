@@ -14,6 +14,7 @@ import {
   RESERVATION_STATUS_LABEL,
 } from '@/lib/constants';
 import { getDayAvailability, ONLINE_LEAD_MIN, STAFF_LEAD_MIN } from './schedule';
+import { depositPolicyFor } from './deposit-policy';
 import { notifyBusiness, notifyUser } from './notifications';
 import { paymentProvider } from './providers';
 import { depositFor, refundOnCancel, type DepositPolicy } from '@/lib/deposit';
@@ -120,17 +121,7 @@ export async function quoteBooking(args: {
   const promo = await resolvePromotion(args.promotionCode, business.id, price);
   const discount = promo?.discount ?? 0;
   const finalPrice = Math.max(0, price - discount);
-  const deposit = depositFor(
-    {
-      addon: business.depositAddon,
-      enabled: business.depositEnabled,
-      kind: business.depositKind,
-      value: business.depositValue,
-      minPrice: business.depositMinPrice,
-      refundHours: business.depositRefundHours,
-    },
-    finalPrice,
-  );
+  const deposit = depositFor(depositPolicyFor(business), finalPrice);
   return { price, discount, finalPrice, deposit };
 }
 
@@ -216,14 +207,7 @@ export async function createReservation(input: CreateReservationInput) {
   const method = input.paymentMethod ?? 'AT_VENUE';
 
   // Kapora, randevu anındaki politikayla hesaplanır ve kayda dondurulur.
-  const policy: DepositPolicy = {
-    addon: business.depositAddon,
-    enabled: business.depositEnabled,
-    kind: business.depositKind,
-    value: business.depositValue,
-    minPrice: business.depositMinPrice,
-    refundHours: business.depositRefundHours,
-  };
+  const policy: DepositPolicy = depositPolicyFor(business);
   const deposit = depositFor(policy, finalPrice);
 
   const created = await prisma
