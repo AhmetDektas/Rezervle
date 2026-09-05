@@ -10,12 +10,18 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     globals: false,
-    // Bütünleşik testler aynı SQLite dosyasına yazar; sıralı çalışmalı.
+    // Bütünleşik testler aynı veritabanına yazar; sıralı çalışmalı.
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
     globalSetup: ['./tests/global-setup.ts'],
-    // Testler üretim/geliştirme verisine dokunmaz; kendi dosyasını kullanır.
-    env: { DATABASE_URL: 'file:./test.db', AUTH_SECRET: 'test-secret-en-az-otuz-iki-karakter-uzunlugunda' },
+    // Testler geliştirme verisine dokunmaz; ayrı bir veritabanı kullanır.
+    // global-setup.ts her koşuda bu veritabanını sıfırlar.
+    env: {
+      DATABASE_URL:
+        process.env['TEST_DATABASE_URL'] ??
+        'postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public',
+      AUTH_SECRET: 'test-secret-en-az-otuz-iki-karakter-uzunlugunda',
+    },
   },
 });

@@ -1,14 +1,15 @@
 # Rezzerv CI
 #
 # Katmanlı çalışır (mühendislik incelemesi, madde 7):
-#   - hizli: her push'ta. Tip denetimi + lint + birim/entegrasyon (~1 dk).
+#   - hizli: her push'ta. Tip denetimi + lint + birim/entegrasyon (~1-2 dk).
 #   - e2e:   yalnızca pull request ve main'e push'ta. Tam Playwright süiti
 #            yerelde 12,7 dk sürüyor; her push'ta koşarsa geri bildirim
 #            döngüsü insanları CI'a bakmamaya iter.
 #
-# Servis konteynerleri, yerelde bulunmayan Postgres ve Redis'i sağlar. Bu CI
-# aynı zamanda Postgres göçünün (T1) ve kuyruk işlerinin (T9) tek doğrulama
-# ortamı: geliştirme makinesinde ikisi de kurulu değil.
+# Her iki iş de Postgres servisine bağlanır: T1 göçünden sonra entegrasyon
+# testleri de gerçek veritabanı istiyor. Redis yalnızca e2e işinde; kuyruk
+# işleri henüz E2E akışına girmedi ama servis şimdiden ayakta ki iş
+# eklendiğinde CI'ın kendisini değiştirmek gerekmesin.
 name: test
 
 on:
@@ -23,16 +24,33 @@ concurrency:
 env:
   AUTH_SECRET: ci-secret-en-az-otuz-iki-karakter-uzunlugunda-olmali
   NEXT_TELEMETRY_DISABLED: '1'
-  # .env deposuda izlenmiyor, bu yüzden CI kendi değerini vermek zorunda.
-  # prisma generate bile bu değişkeni arar (datasource env("DATABASE_URL")).
-  # T1 ile provider postgresql olduğunda bu satır servis konteynerinin
-  # dizesine çevrilecek: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test
-  DATABASE_URL: file:./dev.db
 
 jobs:
   hizli:
     name: Tip denetimi, lint, birim testleri
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rezzerv
+          POSTGRES_PASSWORD: rezzerv
+          POSTGRES_DB: rezzerv_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rezzerv"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Bu iste yalnizca testler kosuyor, bu yuzden servisin varsayilan
+      # veritabani dogrudan test veritabani olarak kullaniliyor;
+      # global-setup.ts her kosuda onu sifirliyor.
+      DATABASE_URL: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public
+      TEST_DATABASE_URL: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public
+
     steps:
       - uses: actions/checkout@v4
 
@@ -43,9 +61,6 @@ jobs:
 
       - run: npm ci
 
-      # Vitest kendi SQLite dosyasını kullanıyor (vitest.config.ts içindeki
-      # DATABASE_URL). Postgres'e geçildiğinde bu adım da servis konteynerine
-      # bağlanacak; o zaman buraya `services:` bloğu eklenir.
       - run: npx prisma generate
 
       - run: npm run typecheck
@@ -67,7 +82,7 @@ jobs:
         env:
           POSTGRES_USER: rezzerv
           POSTGRES_PASSWORD: rezzerv
-          POSTGRES_DB: rezzerv_test
+          POSTGRES_DB: rezzerv
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U rezzerv"
@@ -84,6 +99,10 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+    env:
+      DATABASE_URL: postgresql://rezzerv:rezzerv@localhost:5432/rezzerv?schema=public
+      REDIS_URL: redis://localhost:6379
+
     steps:
       - uses: actions/checkout@v4
 
@@ -97,12 +116,7 @@ jobs:
       - name: Playwright tarayıcılarını kur
         run: npx playwright install --with-deps chromium
 
-      - run: npx prisma generate
-
-      # Şema hâlâ SQLite; Postgres servisi T1 ile devreye girecek ve o zaman
-      # DATABASE_URL aşağıdaki postgres dizesine çevrilecek. Servis şimdiden
-      # ayakta ki göç PR'ında CI'ın kendisini değiştirmek gerekmesin.
-      - name: Veritabanını hazırla ve tohumla
+      - name: Şemayı uygula ve tohumla
         run: npm run setup
 
       - name: E2E

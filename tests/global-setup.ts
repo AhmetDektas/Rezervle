@@ -1,13 +1,22 @@
 import { execSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import { join } from 'node:path';
 
-/** Bütünleşik testler için ayrı ve boş bir SQLite veritabanı hazırlar. */
+/**
+ * Bütünleşik testler için ayrı ve boş bir Postgres veritabanı hazırlar.
+ *
+ * Ayrı VERİTABANI kullanılıyor, ayrı şema değil: `prisma db push --force-reset`
+ * Postgres'te veritabanının tamamını sıfırlıyor. Aynı veritabanında şema
+ * ayrımıyla çalışsaydık her test koşusu geliştirme verisini de silerdi.
+ *
+ * `docker compose up -d` ile ayağa kalkan Postgres'te `rezzerv_test`
+ * veritabanının var olması gerekir (.env.example ve README'de yazılı).
+ */
+const TEST_DATABASE_URL =
+  process.env['TEST_DATABASE_URL'] ??
+  'postgresql://rezzerv:rezzerv@localhost:5432/rezzerv_test?schema=public';
+
 export default function setup(): void {
-  const dbPath = join(process.cwd(), 'prisma', 'test.db');
-  rmSync(dbPath, { force: true });
-  execSync('npx prisma db push --skip-generate --accept-data-loss', {
+  execSync('npx prisma db push --skip-generate --force-reset', {
     stdio: 'ignore',
-    env: { ...process.env, DATABASE_URL: 'file:./test.db' },
+    env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
   });
 }

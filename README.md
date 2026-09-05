@@ -11,20 +11,34 @@ spor salonları için şema hazır, arayüz henüz yok.
 
 ## Kurulum
 
-Node.js 20 veya üzeri gerekir. Veritabanı için kurulum yapmanıza gerek yok — SQLite dosya
-tabanlı çalışır.
+Node.js 20+ ve Docker gerekir. Postgres ile Redis konteynerde çalışır; makinenize
+kurmanız gerekmez.
 
 ```bash
+docker compose up -d                 # Postgres 16 + Redis 7
 npm install
 cp .env.example .env
-npm run setup      # prisma generate + migrate + tohum verisi
+
+# Testler ayrı bir veritabanı kullanır; bir kez oluşturun:
+docker exec rezzerv-postgres psql -U rezzerv -d rezzerv   -c "CREATE DATABASE rezzerv_test"
+
+npm run setup                        # prisma generate + migrate + tohum verisi
 npm run dev
+```
+
+Arka plan işleri (hatırlatma, ödeme süre aşımı) ayrı bir süreçte koşar:
+
+```bash
+npm run worker
 ```
 
 `http://localhost:3000` adresini açın.
 
 > `npm run setup` bir kerelik hazırlıktır. Veriyi sıfırlayıp baştan doldurmak için
 > `npm run db:reset` kullanın.
+>
+> Konteynerleri durdurmak için `docker compose down`; veriyi de silmek için
+> `docker compose down -v`.
 >
 > Windows'ta `npm run build` komutunu geliştirme sunucusu **kapalıyken** çalıştırın:
 > çalışan sunucu Prisma sorgu motorunu kilitler ve `prisma generate` adımı `EPERM` verir.
@@ -89,7 +103,7 @@ tests/                   unit / integration (Vitest) + e2e (Playwright)
 ```
 
 **Yığın:** Next.js 15 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS ·
-Prisma + SQLite · Zod · jose ile imzalı çerez oturumu · bcrypt · Vitest · Playwright.
+Prisma + PostgreSQL · BullMQ + Redis · Zod · jose ile imzalı çerez oturumu · bcrypt · Vitest · Playwright.
 
 ### İki tasarım kararı
 

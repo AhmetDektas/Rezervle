@@ -1,18 +1,22 @@
 // Rezzerv — paylasilan rezervasyon cekirdegi + sektore ozel uzanti noktalari.
 //
-// Yerelde SQLite kullanilir (kurulum gerektirmez). PostgreSQL'e gecmek icin:
-//   1) provider = "postgresql"
-//   2) DATABASE_URL'i postgres baglanti dizesiyle degistirin
-//   3) prisma migrate dev
-// Sema bilerek enum kullanmaz; SQLite enum desteklemez ve sabitler
-// src/lib/constants.ts icinde tip guvenli birlik tipleri olarak tanimlidir.
+// PostgreSQL kullanir. Yerelde `docker compose up -d` ile ayaga kalkar;
+// baglanti dizesi .env icindeki DATABASE_URL'dir (ornegi .env.example'da).
+//
+// Gocun zamanlamasi bilincliydi: cakisma engeli (slotKey tekil kisiti +
+// islem ici yeniden kontrol) veritabaninin escaman yazma garantilerine
+// dayaniyor ve SQLite yazmalari tek kilitle siraya sokuyordu. Goc, ilk
+// gercek isletme kaydindan once yapildi -- veri yokken migration risksiz.
+//
+// Sema bilerek enum kullanmaz: sabitler src/lib/constants.ts icinde tip
+// guvenli birlik tipleri olarak tanimli ve tek kaynak orasi.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
