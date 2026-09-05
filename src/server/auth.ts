@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import type { Role } from '@/lib/constants';
 import { readSessionCookie } from './session';
+import { logError } from './log';
 
 export type SessionUser = {
   id: string;
@@ -127,11 +128,27 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
   return bcrypt.compare(plain, hash);
 }
 
-/** Sayfa/layout içinde kullanılır: yetki yoksa hata yerine yönlendirme. */
+/**
+ * Sayfa/layout içinde kullanılır: yetki yoksa hata yerine yönlendirme.
+ *
+ * Yalnızca **yetki** hataları `/yetkisiz`e gider. Önceden `catch { }` her şeyi
+ * aynı kovaya atıyordu: veritabanı arızası da "yetkiniz yok" olarak
+ * görünüyordu. Bu hem yanlış teşhis hem de sessiz gizleme — arıza,
+ * metriklerde yetki reddi gibi göründüğü için alarm çalmıyordu. Postgres'e
+ * geçişle bağlantı havuzu tükenmesi gerçek bir arıza sınıfı haline geliyor;
+ * tam da yeni riskin doğduğu yerde kör kalmamak gerekiyor.
+ */
 export async function requireBusinessAccess(user: SessionUser, businessId: string): Promise<void> {
   try {
     await assertBusinessAccess(user, businessId);
-  } catch {
-    redirect('/yetkisiz');
+  } catch (err) {
+    if (err instanceof ForbiddenError || err instanceof AuthError) redirect('/yetkisiz');
+    // Next.js yönlendirme sinyalleri hata gibi görünür; yutulmamalı.
+    if (err instanceof Error && 'digest' in err && typeof err.digest === 'string'
+        && err.digest.startsWith('NEXT_')) {
+      throw err;
+    }
+    logError({ action: 'requireBusinessAccess', userId: user.id, meta: { businessId } }, err);
+    throw err;
   }
 }
