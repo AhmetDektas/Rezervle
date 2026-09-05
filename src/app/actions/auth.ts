@@ -7,6 +7,7 @@ import { setSessionCookie, clearSessionCookie } from '@/server/session';
 import { DomainError, run, type ActionResult } from '@/server/errors';
 import type { Role } from '@/lib/constants';
 import { notifyUser } from '@/server/notifications';
+import { activePlatformPromotion, welcomeBody } from '@/server/promotions';
 
 export type AuthResult = ActionResult<{ role: Role }> & { fields?: Record<string, string> };
 
@@ -58,11 +59,14 @@ export async function registerAction(formData: FormData): Promise<AuthResult> {
         customerProfile: { create: {} },
       },
     });
+    // Karşılama metni kampanya tablosundan üretilir: kod, tutar ve alt limit
+    // tek kaynaktan gelir. Kampanya kapatılırsa bildirim de ondan bahsetmez.
+    const promo = await activePlatformPromotion();
     await notifyUser({
       userId: user.id,
       kind: 'INFO',
       title: 'Rezzerv’e hoş geldiniz',
-      body: 'İlk randevunuzda REZZERV100 kodu ile 100 TL indirim kazanın.',
+      body: welcomeBody(promo),
       href: '/kesfet',
     });
     await setSessionCookie({ uid: user.id, role: 'CUSTOMER', name: user.name });
