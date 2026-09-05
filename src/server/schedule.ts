@@ -29,6 +29,16 @@ export type DayAvailabilityArgs = {
   excludeReservationId?: string | undefined;
   leadMin?: number;
   stepMin?: number;
+  /**
+   * "Şu an" — yalnızca istenen gün bugünse anlamlı: o günün geçmiş saatleri
+   * elenirken kullanılır. Verilmezse duvar saati okunur.
+   *
+   * Enjekte edilebilir olması test içindir. Müsaitlik, günün saatine göre
+   * farklı sonuç veren tek yer; duvar saatine bağlı kalırsa "cuma 18:37'de
+   * saat kalmıyor" gibi davranışlar ancak o saatte koşan testlerle
+   * yakalanabilir. Nitekim bir E2E testi tam bu yüzden düşmüştü.
+   */
+  now?: Date;
 };
 
 /** Bir günün açık slotlarını hesaplar. Müşteri ve panel aynı yolu kullanır. */
@@ -110,14 +120,15 @@ export async function getDayAvailability(args: DayAvailabilityArgs): Promise<Slo
     };
   });
 
-  const isToday = date === today();
+  const clock = args.now ?? new Date();
+  const isToday = date === today(clock);
   return computeSlots({
     branchHours: { startMin: bh.openMin, endMin: bh.closeMin },
     service: { durationMin: service.durationMin, bufferMin: service.bufferMin },
     staff,
     stepMin,
     minLeadMin: leadMin,
-    nowMin: isToday ? nowMinutes() : null,
+    nowMin: isToday ? nowMinutes(clock) : null,
   });
 }
 
