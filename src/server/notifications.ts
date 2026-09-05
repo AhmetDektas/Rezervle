@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { notify as notifyChannels } from './providers';
+import { logSideEffectFailure } from './log';
 
 type NotifyInput = {
   userId: string;
@@ -33,13 +34,31 @@ export async function notifyUser(
       select: { email: true, phone: true, name: true },
     });
     if (user) {
-      await notifyChannels({
-        email: user.email,
-        phone: user.phone,
-        name: user.name,
-        subject: input.title,
-        body: input.body ?? input.title,
-      });
+      // E-posta/SMS gönderimi asıl işlemin başarı şartı DEĞİLDİR.
+      //
+      // Konsol adaptörleri hiç patlamadığı için bu bugüne kadar görünmedi;
+      // gerçek SMTP/Netgsm bağlandığı an sağlayıcı arızası buradan yukarı
+      // fırlar ve `run()` onu genel hataya çevirir. Sonuç: randevusu oluşmuş
+      // ve kaporası çekilmiş kullanıcı "Beklenmeyen bir hata oluştu" görür,
+      // muhtemelen tekrar dener ve ikinci deneme çakışmaya çarpar.
+      //
+      // Uygulama içi bildirim yukarıda zaten yazıldı; kullanıcı randevusunu
+      // /bildirimler ve /randevularim üzerinden görmeye devam eder. Kanal
+      // gönderimi başarısızsa uyarı olarak loglanır ve akış kesilmez.
+      try {
+        await notifyChannels({
+          email: user.email,
+          phone: user.phone,
+          name: user.name,
+          subject: input.title,
+          body: input.body ?? input.title,
+        });
+      } catch (err) {
+        logSideEffectFailure(
+          { action: 'notifyChannels', userId: input.userId, meta: { kind: input.kind ?? 'INFO' } },
+          err,
+        );
+      }
     }
   }
 }
