@@ -107,7 +107,7 @@ export async function panelCreateReservationAction(
     const reservation = await createReservation({
       businessId: parsed.data.businessId,
       branchId: parsed.data.branchId,
-      serviceId: parsed.data.serviceId,
+      serviceIds: parsed.data.serviceIds,
       staffId: parsed.data.staffId,
       customerId: customer.id,
       date: parsed.data.date,

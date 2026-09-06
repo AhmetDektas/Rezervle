@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { ACTIVE_STATUSES, SLOT_STEP_MIN } from '@/lib/constants';
 import { computeSlots, type Slot, type StaffAvailability, type Interval } from '@/lib/availability';
+import { bookingTotals, orderServices } from '@/lib/services';
 import { today, nowMinutes, weekdayOf, zonedToUtc, utcToDateStr, utcToMinutes } from '@/lib/time';
 
 /** Online rezervasyonda en erken randevu için gereken hazırlık süresi. */
@@ -21,7 +22,12 @@ export function timeOffToInterval(date: string, startsAt: Date, endsAt: Date): I
 
 export type DayAvailabilityArgs = {
   branchId: string;
-  serviceId: string;
+  /**
+   * Randevudaki hizmetler, müşterinin seçtiği sırayla. Süreler toplanır,
+   * tampon sonuncudan alınır (bkz. bookingTotals). Personel süzgeci de buna
+   * bağlı: hizmetlerin HEPSİNİ veren personel aranır.
+   */
+  serviceIds: string[];
   date: string;
   /** Belirli bir personel veya 'ANY'. */
   staffId?: string | null;
@@ -39,16 +45,26 @@ export type DayAvailabilityArgs = {
    * yakalanabilir. Nitekim bir E2E testi tam bu yüzden düşmüştü.
    */
   now?: Date;
+  /**
+   * Slot geometrisini hizmetlerin bugünkü süresi yerine bu değerlerle kurar.
+   *
+   * Yalnızca erteleme kullanır. Randevu alındıktan sonra işletme hizmetin
+   * süresini değiştirmiş olabilir; erteleme mevcut randevuyu TAŞIR, yeniden
+   * fiyatlandırmaz. Kaydın kendi süresi kullanılmazsa 30 dakikalık bir randevu
+   * ertelendiğinde sessizce 45 dakikaya dönerdi.
+   */
+  span?: { durationMin: number; bufferMin: number } | undefined;
 };
 
 /** Bir günün açık slotlarını hesaplar. Müşteri ve panel aynı yolu kullanır. */
 export async function getDayAvailability(args: DayAvailabilityArgs): Promise<Slot[]> {
-  const { branchId, serviceId, date } = args;
+  const { branchId, serviceIds, date } = args;
+  if (serviceIds.length === 0) return [];
   const leadMin = args.leadMin ?? ONLINE_LEAD_MIN;
   const stepMin = args.stepMin ?? SLOT_STEP_MIN;
   const weekday = weekdayOf(date);
 
-  const [branch, service] = await Promise.all([
+  const [branch, serviceRows] = await Promise.all([
     prisma.branch.findUnique({
       where: { id: branchId },
       select: {
@@ -62,13 +78,19 @@ export async function getDayAvailability(args: DayAvailabilityArgs): Promise<Slo
         },
       },
     }),
-    prisma.service.findUnique({
-      where: { id: serviceId },
-      select: { id: true, durationMin: true, bufferMin: true, active: true, businessId: true },
+    prisma.service.findMany({
+      where: { id: { in: serviceIds } },
+      select: { id: true, durationMin: true, bufferMin: true, price: true, active: true, businessId: true },
     }),
   ]);
 
-  if (!branch?.active || !service?.active || branch.businessId !== service.businessId) return [];
+  // Sıra korunur: hangi hizmetin tamponunun uygulanacağını o belirliyor.
+  // Biri bulunamadıysa (silinmiş, başka işletmenin) hiç slot üretilmez —
+  // eksik bir listeyle hesaplanan süre gerçek randevudan kısa olurdu.
+  const services = orderServices(serviceIds, serviceRows);
+  if (!branch?.active || !services) return [];
+  if (services.some((s) => !s.active || s.businessId !== branch.businessId)) return [];
+  const totals = bookingTotals(services);
 
   const bh = branch.hours[0];
   if (!bh || bh.closed || bh.closeMin <= bh.openMin) return [];
@@ -80,10 +102,13 @@ export async function getDayAvailability(args: DayAvailabilityArgs): Promise<Slo
   const staffRows = await prisma.staffMember.findMany({
     where: {
       active: true,
-      businessId: service.businessId,
+      businessId: branch.businessId,
       OR: [{ branchId }, { branchId: null }],
       ...(args.staffId && args.staffId !== 'ANY' ? { id: args.staffId } : {}),
-      services: { some: { serviceId } },
+      // Hizmetlerin HEPSİNİ veren personel. `some` ile aranırsa yalnızca
+      // birini veren personel de listeye girer ve randevunun ortasında
+      // yapamayacağı bir işle karşılaşırdı.
+      AND: serviceIds.map((id) => ({ services: { some: { serviceId: id } } })),
     },
     select: {
       id: true,
@@ -124,7 +149,7 @@ export async function getDayAvailability(args: DayAvailabilityArgs): Promise<Slo
   const isToday = date === today(clock);
   return computeSlots({
     branchHours: { startMin: bh.openMin, endMin: bh.closeMin },
-    service: { durationMin: service.durationMin, bufferMin: service.bufferMin },
+    service: args.span ?? { durationMin: totals.durationMin, bufferMin: totals.bufferMin },
     staff,
     stepMin,
     minLeadMin: leadMin,

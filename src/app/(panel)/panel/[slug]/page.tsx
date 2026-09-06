@@ -27,6 +27,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { money, dayWithWeekday, duration, phone as fmtPhone, percent } from '@/lib/format';
 import { hhmm, today, nowMinutes } from '@/lib/time';
 import type { ReservationStatus } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Bugün' };
 export const dynamic = 'force-dynamic';
@@ -56,6 +57,8 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
       take: 5,
       include: {
         service: { select: { name: true } },
+        // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+        _count: { select: { services: true } },
         customer: { select: { name: true, phone: true } },
       },
     }),
@@ -204,7 +207,7 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
                           {issues.has(r.id) ? <IssueBadge issue={issues.get(r.id)!} /> : null}
                         </div>
                         <p className="mt-0.5 text-[13.5px] text-ink-2">
-                          {r.service.name} · {duration(r.service.durationMin)}
+                          {serviceLabel(r.service.name, r._count.services)} · {duration(r.service.durationMin)}
                         </p>
                         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-3">
                           <span className="inline-flex items-center gap-1.5">
@@ -259,7 +262,9 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
                       <p className="text-[14px] font-medium text-navy">{r.customer.name}</p>
                       {issues.has(r.id) ? <IssueBadge issue={issues.get(r.id)!} /> : null}
                     </div>
-                    <p className="mt-0.5 text-[13px] text-ink-2">{r.service.name}</p>
+                    <p className="mt-0.5 text-[13px] text-ink-2">
+                      {serviceLabel(r.service.name, r._count.services)}
+                    </p>
                     <p className="tnum mt-0.5 text-[12.5px] text-ink-3">
                       {dayWithWeekday(r.date)} · {hhmm(r.startMin)}
                     </p>

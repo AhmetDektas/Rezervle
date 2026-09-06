@@ -58,7 +58,7 @@ describe('bildirim kanalı arızası asıl işlemi düşürmez', () => {
     const created = await createReservation({
       businessId: f.business.id,
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       staffId: f.staffA.id,
       customerId: f.customer.id,
       date: f.date,

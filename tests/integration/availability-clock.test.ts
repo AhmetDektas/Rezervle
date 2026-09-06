@@ -35,7 +35,7 @@ describe('müsaitlik saat dişi', () => {
     const gun = today();
     const slots = await getDayAvailability({
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       date: gun,
       staffId: null,
       now: at(gun, 10),
@@ -49,7 +49,7 @@ describe('müsaitlik saat dişi', () => {
     const gun = today();
     const slots = await getDayAvailability({
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       date: gun,
       staffId: null,
       now: at(gun, 19, 55), // fixture 20:00'da kapanıyor
@@ -66,14 +66,14 @@ describe('müsaitlik saat dişi', () => {
 
     const geceYarisi = await getDayAvailability({
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       date: yarinStr,
       staffId: null,
       now: at(gun, 23, 30),
     });
     const sabah = await getDayAvailability({
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       date: yarinStr,
       staffId: null,
       now: at(gun, 6),

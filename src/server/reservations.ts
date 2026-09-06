@@ -22,11 +22,14 @@ import { notifyBusiness, notifyUser } from './notifications';
 import { paymentProvider } from './providers';
 import { depositFor, refundOnCancel, type DepositPolicy } from '@/lib/deposit';
 import { splitPayment } from '@/lib/commission';
+import { bookingTotals, orderServices, serviceLabel } from '@/lib/services';
+import { MAX_SERVICES_PER_BOOKING, termsFor } from '@/lib/constants';
 
 export type CreateReservationInput = {
   businessId: string;
   branchId: string;
-  serviceId: string;
+  /** Randevudaki hizmetler, müşterinin seçtiği sırayla. En az bir tane. */
+  serviceIds: string[];
   /** 'ANY' → uygun personellerden ilki atanır. */
   staffId: string;
   customerId: string;
@@ -101,10 +104,10 @@ export type BookingQuote = {
  */
 export async function quoteBooking(args: {
   businessId: string;
-  serviceId: string;
+  serviceIds: string[];
   promotionCode?: string | undefined;
 }): Promise<BookingQuote> {
-  const [business, service] = await Promise.all([
+  const [business, serviceRows] = await Promise.all([
     prisma.business.findUnique({
       where: { id: args.businessId },
       select: {
@@ -117,17 +120,22 @@ export async function quoteBooking(args: {
         depositRefundHours: true,
       },
     }),
-    prisma.service.findUnique({
-      where: { id: args.serviceId },
-      select: { price: true, active: true, businessId: true },
+    prisma.service.findMany({
+      where: { id: { in: args.serviceIds } },
+      select: { id: true, durationMin: true, bufferMin: true, price: true, active: true, businessId: true },
     }),
   ]);
   if (!business) throw new DomainError('İşletme bulunamadı.', 'NOT_FOUND');
-  if (!service?.active || service.businessId !== business.id) {
+  const services = orderServices(args.serviceIds, serviceRows);
+  if (!services || services.length === 0) {
+    throw new DomainError('Seçilen hizmet bulunamadı.', 'SERVICE_INVALID');
+  }
+  if (services.some((x) => !x.active || x.businessId !== business.id)) {
     throw new DomainError('Seçilen hizmet bulunamadı.', 'SERVICE_INVALID');
   }
 
-  const price = service.price;
+  // İndirim ve kapora kalem kalem değil, toplam üzerinden hesaplanır.
+  const price = bookingTotals(services).price;
   const promo = await resolvePromotion(args.promotionCode, business.id, price);
   const discount = promo?.discount ?? 0;
   const finalPrice = Math.max(0, price - discount);
@@ -144,7 +152,23 @@ export async function quoteBooking(args: {
  */
 export async function createReservation(input: CreateReservationInput) {
   const clock = input.now ?? new Date();
-  const [business, service, branch] = await Promise.all([
+  if (input.serviceIds.length === 0) {
+    throw new DomainError('En az bir hizmet seçilmeli.', 'SERVICE_INVALID');
+  }
+  // Tekrarlı kimlik burada durmalı. Aksi halde süre ve tutar iki katına
+  // çıkar, kalem tablosundaki benzersizlik kısıtı P2002 fırlatır ve aşağıdaki
+  // yakalayıcı bunu "Bu saat az önce doldu" diye raporlardı — hatanın kendisi
+  // kadar yanıltıcı bir mesaj.
+  if (new Set(input.serviceIds).size !== input.serviceIds.length) {
+    throw new DomainError('Aynı hizmet birden fazla kez seçilemez.', 'SERVICE_INVALID');
+  }
+  if (input.serviceIds.length > MAX_SERVICES_PER_BOOKING) {
+    throw new DomainError(
+      `Bir randevuda en fazla ${MAX_SERVICES_PER_BOOKING} hizmet seçilebilir.`,
+      'SERVICE_INVALID',
+    );
+  }
+  const [business, serviceRows, branch] = await Promise.all([
     prisma.business.findUnique({
       where: { id: input.businessId },
       select: {
@@ -163,7 +187,7 @@ export async function createReservation(input: CreateReservationInput) {
         category: { select: { sector: true } },
       },
     }),
-    prisma.service.findUnique({ where: { id: input.serviceId } }),
+    prisma.service.findMany({ where: { id: { in: input.serviceIds } } }),
     prisma.branch.findUnique({ where: { id: input.branchId } }),
   ]);
 
@@ -171,9 +195,21 @@ export async function createReservation(input: CreateReservationInput) {
   if (business.status !== 'APPROVED') {
     throw new DomainError('Bu işletme şu anda randevu kabul etmiyor.', 'BUSINESS_INACTIVE');
   }
-  if (!service || !service.active || service.businessId !== business.id) {
+  // Sıra korunur: ekranda o sırayla listelenir ve tampon sonuncudan alınır.
+  const services = orderServices(input.serviceIds, serviceRows);
+  if (!services || services.some((x) => !x.active || x.businessId !== business.id)) {
     throw new DomainError('Seçilen hizmet bulunamadı.', 'SERVICE_INVALID');
   }
+  // Sektör çoklu hizmete kapalıysa burada durur. Arayüz zaten tek seçime
+  // izin veriyor ama tek savunma arayüz olamaz: doğrudan gönderilen bir istek
+  // restorana "2 kişilik masa + 4 kişilik masa" diye bir kayıt yazdırırdı.
+  if (services.length > 1 && !termsFor(business.category.sector).multiService) {
+    throw new DomainError(
+      'Bu işletmede tek randevuda yalnızca bir seçenek alınabilir.',
+      'SERVICE_INVALID',
+    );
+  }
+  const totals = bookingTotals(services);
   if (!branch || !branch.active || branch.businessId !== business.id) {
     throw new DomainError('Seçilen şube bulunamadı.', 'BRANCH_INVALID');
   }
@@ -210,7 +246,7 @@ export async function createReservation(input: CreateReservationInput) {
   const lead = input.channel === 'ONLINE' ? ONLINE_LEAD_MIN : STAFF_LEAD_MIN;
   const slots = await getDayAvailability({
     branchId: branch.id,
-    serviceId: service.id,
+    serviceIds: services.map((x) => x.id),
     date: input.date,
     staffId: input.staffId === 'ANY' ? null : input.staffId,
     leadMin: lead,
@@ -230,12 +266,12 @@ export async function createReservation(input: CreateReservationInput) {
     throw new DomainError('Seçilen personel bu saatte uygun değil.', 'STAFF_BUSY');
   }
 
-  const price = service.price;
+  const price = totals.price;
   const promo = await resolvePromotion(input.promotionCode, business.id, price);
   const discount = promo?.discount ?? 0;
   const finalPrice = Math.max(0, price - discount);
-  const endMin = input.startMin + service.durationMin;
-  const blockEnd = endMin + service.bufferMin;
+  const endMin = input.startMin + totals.durationMin;
+  const blockEnd = endMin + totals.bufferMin;
   const method = input.paymentMethod ?? 'AT_VENUE';
 
   // Kapora, randevu anındaki politikayla hesaplanır ve kayda dondurulur.
@@ -262,7 +298,9 @@ export async function createReservation(input: CreateReservationInput) {
           code: reservationCode(),
           businessId: business.id,
           branchId: branch.id,
-          serviceId: service.id,
+          // Liste `services` alanında; bu alan ilkini gösteriyor ve bildirim,
+          // rapor, değerlendirme gibi tek hizmet adı bekleyen yolları besliyor.
+          serviceId: services[0]!.id,
           staffId,
           customerId: input.customerId,
           createdById: input.actorId ?? input.customerId,
@@ -284,6 +322,18 @@ export async function createReservation(input: CreateReservationInput) {
           depositAmount: deposit,
           depositStatus: 'NONE',
           slotKey: slotKeyOf(staffId, input.date, input.startMin),
+          // Kalemler randevuyla AYNI işlemde yazılır: hizmet listesi olmayan
+          // bir randevu kaydı hiçbir an var olmamalı.
+          services: {
+            create: services.map((x, i) => ({
+              serviceId: x.id,
+              sortOrder: i,
+              name: x.name,
+              durationMin: x.durationMin,
+              bufferMin: x.bufferMin,
+              price: x.price,
+            })),
+          },
         },
         include: { service: true, staff: true, branch: true, business: true },
       });
@@ -416,18 +466,19 @@ export async function createReservation(input: CreateReservationInput) {
   }
 
   const when = `${longDate(created.date)} ${hhmm(created.startMin)}`;
+  const hizmetler = serviceLabel(created.service.name, services.length);
   await notifyUser({
     userId: created.customerId,
     kind: 'RESERVATION',
     title: `Randevunuz oluşturuldu — ${created.business.name}`,
-    body: `${created.service.name} · ${when} · ${created.staff.displayName}`,
+    body: `${hizmetler} · ${when} · ${created.staff.displayName}`,
     href: `/randevularim/${created.id}`,
     alsoSend: true,
   });
   await notifyBusiness(created.businessId, created.staffId, {
     kind: 'RESERVATION',
     title: 'Yeni randevu',
-    body: `${created.service.name} · ${when}`,
+    body: `${hizmetler} · ${when}`,
     href: `/panel/${created.business.slug}/takvim?tarih=${created.date}`,
   });
 
@@ -549,7 +600,11 @@ export async function setReservationStatus(args: {
         ...(args.note !== undefined && releasesSlot ? { cancelReason: args.note } : {}),
         ...(depositStatus ? { depositStatus } : {}),
       },
-      include: { business: { select: { name: true, slug: true } }, service: true },
+      include: {
+        business: { select: { name: true, slug: true } },
+        service: true,
+        _count: { select: { services: true } },
+      },
     });
     await tx.reservationStatusHistory.create({
       data: {
@@ -603,7 +658,7 @@ export async function setReservationStatus(args: {
     userId: current.customerId,
     kind: 'RESERVATION',
     title: `Randevunuz: ${label.toLocaleLowerCase('tr-TR')}`,
-    body: `${updated.business.name} · ${updated.service.name} · ${longDate(updated.date)} ${hhmm(updated.startMin)}${depositNote}`,
+    body: `${updated.business.name} · ${serviceLabel(updated.service.name, updated._count.services)} · ${longDate(updated.date)} ${hhmm(updated.startMin)}${depositNote}`,
     href: `/randevularim/${updated.id}`,
     alsoSend: args.to === 'CANCELLED' || args.to === 'CONFIRMED',
   });
@@ -627,7 +682,11 @@ export async function rescheduleReservation(args: {
 }) {
   const current = await prisma.reservation.findUnique({
     where: { id: args.id },
-    include: { service: true, business: { select: { name: true, slug: true } } },
+    include: {
+      service: true,
+      services: { orderBy: { sortOrder: 'asc' }, select: { serviceId: true } },
+      business: { select: { name: true, slug: true } },
+    },
   });
   if (!current) throw new DomainError('Randevu bulunamadı.', 'NOT_FOUND');
   if (['CANCELLED', 'COMPLETED'].includes(current.status)) {
@@ -641,9 +700,19 @@ export async function rescheduleReservation(args: {
   }
 
   const staffId = args.staffId ?? current.staffId;
+  // Erteleme randevuyu TAŞIR, yeniden fiyatlandırmaz. Süre kaydın kendi
+  // değerlerinden okunuyor; hizmetin süresi randevu alındıktan sonra
+  // değiştirilmişse 30 dakikalık randevu sessizce 45 dakikaya dönerdi.
+  const span = {
+    durationMin: current.endMin - current.startMin,
+    bufferMin: current.blockEnd - current.endMin,
+  };
+  const serviceIds =
+    current.services.length > 0 ? current.services.map((x) => x.serviceId) : [current.serviceId];
   const slots = await getDayAvailability({
     branchId: current.branchId,
-    serviceId: current.serviceId,
+    serviceIds,
+    span,
     date: args.date,
     staffId,
     excludeReservationId: current.id,
@@ -653,8 +722,8 @@ export async function rescheduleReservation(args: {
   const slot = slots.find((s) => s.startMin === args.startMin && s.staffIds.includes(staffId));
   if (!slot) throw new DomainError('Seçilen saat uygun değil.', 'SLOT_TAKEN');
 
-  const endMin = args.startMin + current.service.durationMin;
-  const blockEnd = endMin + current.service.bufferMin;
+  const endMin = args.startMin + span.durationMin;
+  const blockEnd = endMin + span.bufferMin;
 
   const updated = await prisma
     .$transaction(async (tx) => {
@@ -683,7 +752,12 @@ export async function rescheduleReservation(args: {
           endsAt: zonedToUtc(args.date, endMin),
           slotKey: slotKeyOf(staffId, args.date, args.startMin),
         },
-        include: { staff: true, service: true, business: { select: { name: true, slug: true } } },
+        include: {
+          staff: true,
+          service: true,
+          _count: { select: { services: true } },
+          business: { select: { name: true, slug: true } },
+        },
       });
       await tx.reservationStatusHistory.create({
         data: {
@@ -714,7 +788,7 @@ export async function rescheduleReservation(args: {
   await notifyBusiness(updated.businessId, updated.staffId, {
     kind: 'RESERVATION',
     title: 'Randevu ertelendi',
-    body: `${updated.service.name} · ${longDate(updated.date)} ${hhmm(updated.startMin)}`,
+    body: `${serviceLabel(updated.service.name, updated._count.services)} · ${longDate(updated.date)} ${hhmm(updated.startMin)}`,
     href: `/panel/${updated.business.slug}/takvim?tarih=${updated.date}`,
   });
 

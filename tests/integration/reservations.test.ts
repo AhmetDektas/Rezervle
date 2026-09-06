@@ -28,7 +28,7 @@ function book(over: Partial<Parameters<typeof createReservation>[0]> = {}) {
   return createReservation({
     businessId: f.business.id,
     branchId: f.branch.id,
-    serviceId: f.service.id,
+    serviceIds: [f.service.id],
     staffId: f.staffA.id,
     customerId: f.customer.id,
     date: f.date,
@@ -150,7 +150,7 @@ describe('oluşturma doğrulamaları', () => {
 
   it('personelin vermediği hizmeti reddeder', async () => {
     // Hekim B kısa kontrol hizmetini vermiyor.
-    await expect(book({ staffId: f.staffB.id, serviceId: f.shortService.id })).rejects.toThrow();
+    await expect(book({ staffId: f.staffB.id, serviceIds: [f.shortService.id] })).rejects.toThrow();
   });
 
   it('onaylanmamış işletmeye randevu vermez', async () => {
@@ -160,7 +160,7 @@ describe('oluşturma doğrulamaları', () => {
 
   it('başka işletmenin hizmetini kabul etmez', async () => {
     const foreign = await createFixture();
-    await expect(book({ serviceId: foreign.service.id })).rejects.toThrow(/hizmet bulunamadı/i);
+    await expect(book({ serviceIds: [foreign.service.id] })).rejects.toThrow(/hizmet bulunamadı/i);
   });
 });
 
@@ -281,7 +281,7 @@ describe('erteleme', () => {
 describe('uygunluk sorgusu', () => {
   it('dolu saati listelemez', async () => {
     const before = await getDayAvailability({
-      branchId: f.branch.id, serviceId: f.service.id, date: f.date, stepMin: 15, leadMin: 0,
+      branchId: f.branch.id, serviceIds: [f.service.id], date: f.date, stepMin: 15, leadMin: 0,
     });
     expect(before.some((s) => s.startMin === 600)).toBe(true);
 
@@ -289,7 +289,7 @@ describe('uygunluk sorgusu', () => {
     await book({ staffId: f.staffB.id, customerId: f.other.id });
 
     const after = await getDayAvailability({
-      branchId: f.branch.id, serviceId: f.service.id, date: f.date, stepMin: 15, leadMin: 0,
+      branchId: f.branch.id, serviceIds: [f.service.id], date: f.date, stepMin: 15, leadMin: 0,
     });
     expect(after.some((s) => s.startMin === 600)).toBe(false);
   });
@@ -298,7 +298,7 @@ describe('uygunluk sorgusu', () => {
     const reservation = await book();
     const slots = await getDayAvailability({
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       date: f.date,
       staffId: f.staffA.id,
       excludeReservationId: reservation.id,

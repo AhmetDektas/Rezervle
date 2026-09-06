@@ -147,6 +147,17 @@ export type SectorTerms = {
   services: string;
   /** Rezervasyonun ilk adımının sorusu */
   servicePrompt: string;
+  /**
+   * Tek randevuda birden fazla hizmet seçilebilir mi?
+   *
+   * Ayrım, hizmetin ne olduğuna bakıyor. Kuaförde "saç kesimi" ve "sakal
+   * düzeltme" birbirinin üstüne eklenen İŞLEMLER: ikisini tek randevuda almak
+   * doğal. Restoranda hizmet masa boyutu, halı sahada kiralama süresi,
+   * salonda ders — bunlar aynı şeyin VARYANTLARI. "2 kişilik masa + 4 kişilik
+   * masa" diye bir rezervasyon yok; orada çoklu seçim, süreyi ve tutarı
+   * toplayıp saçma bir kayıt üretirdi.
+   */
+  multiService: boolean;
 };
 
 const PERSON_TERMS: SectorTerms = {
@@ -157,6 +168,7 @@ const PERSON_TERMS: SectorTerms = {
   anyHint: (n) => `Uygun olan ilk personel atanır (${n} kişi)`,
   services: 'Hizmetler ve fiyatlar',
   servicePrompt: 'Hangi hizmeti alacaksınız?',
+  multiService: true,
 };
 
 export const SECTOR_TERMS: Record<Sector, SectorTerms> = {
@@ -172,6 +184,9 @@ export const SECTOR_TERMS: Record<Sector, SectorTerms> = {
     anyHint: (n) => `Uygun olan ilk eğitmen atanır (${n} kişi)`,
     services: 'Dersler ve fiyatlar',
     servicePrompt: 'Hangi dersi alacaksınız?',
+    // Ders belirli bir saatte başlayan grup etkinliği; iki dersi aynı
+    // randevuya sığdırmak takvimi değil, kaydı bozardı.
+    multiService: false,
   },
   PITCH: {
     resource: 'Saha',
@@ -181,6 +196,8 @@ export const SECTOR_TERMS: Record<Sector, SectorTerms> = {
     anyHint: (n) => `Uygun olan ilk saha ayrılır (${n} saha)`,
     services: 'Kiralama seçenekleri',
     servicePrompt: 'Ne kadar süre kiralamak istersiniz?',
+    // Hizmetin kendisi süre; iki süreyi birden seçmek anlamsız.
+    multiService: false,
   },
   RESTAURANT: {
     resource: 'Masa',
@@ -190,6 +207,8 @@ export const SECTOR_TERMS: Record<Sector, SectorTerms> = {
     anyHint: (n) => `Uygun olan ilk masa ayrılır (${n} masa)`,
     services: 'Rezervasyon seçenekleri',
     servicePrompt: 'Kaç kişilik masa istersiniz?',
+    // Hizmetin kendisi masa boyutu; iki boyutu birden seçmek anlamsız.
+    multiService: false,
   },
 };
 
@@ -213,6 +232,16 @@ export const SLOT_STEP_MIN = 15;
 
 /** İleriye dönük rezervasyon penceresi (gün). */
 export const BOOKING_HORIZON_DAYS = 60;
+
+/**
+ * Bir randevuda seçilebilecek en fazla hizmet sayısı.
+ *
+ * Sınır keyfi değil, kötüye kullanıma karşı: sınırsız bırakıldığında tek
+ * istek personelin bütün gününü tek randevuya kilitleyebilir. Toplam sürenin
+ * kapanışa sığması ayrıca müsaitlik çekirdeğinde kontrol ediliyor; bu sınır
+ * ondan önce devreye giren ucuz olan.
+ */
+export const MAX_SERVICES_PER_BOOKING = 6;
 
 /**
  * 3DS için tanınan süre (dakika).

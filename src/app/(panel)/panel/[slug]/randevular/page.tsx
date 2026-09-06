@@ -20,6 +20,7 @@ import {
   type Channel,
   type ReservationStatus,
 } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Randevular' };
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,7 @@ export default async function ReservationsPage({
       services: {
         where: { active: true },
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, name: true, durationMin: true, price: true },
+        select: { id: true, name: true, durationMin: true, bufferMin: true, price: true },
       },
       staff: {
         where: { active: true },
@@ -104,6 +105,8 @@ export default async function ReservationsPage({
     take: 40,
     include: {
       service: { select: { name: true, durationMin: true } },
+      // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+      _count: { select: { services: true } },
       staff: { select: { displayName: true } },
       customer: { select: { id: true, name: true, phone: true } },
       branch: { select: { name: true } },
@@ -189,7 +192,7 @@ export default async function ReservationsPage({
                       ) : null}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-[13.5px] text-navy">{r.service.name}</p>
+                      <p className="text-[13.5px] text-navy">{serviceLabel(r.service.name, r._count.services)}</p>
                       <p className="text-[12.5px] text-ink-3">{duration(r.service.durationMin)}</p>
                     </td>
                     <td className="px-4 py-3 text-[13.5px] text-ink-2">{r.staff.displayName}</td>
@@ -221,7 +224,7 @@ export default async function ReservationsPage({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[14.5px] font-medium text-navy">{r.customer.name}</p>
-                    <p className="text-[13px] text-ink-2">{r.service.name}</p>
+                    <p className="text-[13px] text-ink-2">{serviceLabel(r.service.name, r._count.services)}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <StatusBadge status={r.status as ReservationStatus} />

@@ -22,17 +22,25 @@ import { SLOT_STEP_MIN } from '@/lib/constants';
 /** Takvimde bir günün açık saatleri. Herkese açık: fiyat/kişi bilgisi içermez. */
 export async function slotsAction(input: {
   branchId: string;
-  serviceId: string;
+  serviceIds: string[];
   staffId: string;
   date: string;
   excludeReservationId?: string;
+  /**
+   * Erteleme önizlemesi. Mevcut randevu TAŞINIR, yeniden fiyatlandırılmaz:
+   * slotlar kaydın kendi süresiyle hesaplanmalı. Hizmetin süresi randevu
+   * alındıktan sonra değiştiyse, bu olmadan ekranda sunucunun kabul
+   * etmeyeceği saatler görünürdü.
+   */
+  span?: { durationMin: number; bufferMin: number };
 }): Promise<ActionResult<Slot[]>> {
   return run(async () => {
     const user = await currentUser();
     const byStaff = user !== null && user.role !== 'CUSTOMER';
     return getDayAvailability({
       branchId: input.branchId,
-      serviceId: input.serviceId,
+      serviceIds: input.serviceIds,
+      span: input.span,
       date: input.date,
       staffId: input.staffId === 'ANY' ? null : input.staffId,
       excludeReservationId: input.excludeReservationId,
@@ -48,7 +56,7 @@ export async function slotsAction(input: {
  */
 export async function quoteBookingAction(input: {
   businessId: string;
-  serviceId: string;
+  serviceIds: string[];
   promotionCode?: string;
 }): Promise<ActionResult<BookingQuote>> {
   return run(() => quoteBooking(input), { action: 'quoteBookingAction' });
@@ -83,7 +91,8 @@ export async function createBookingAction(
     ctx.userId = user.id;
     ctx.meta = {
       businessId: parsed.data.businessId,
-      serviceId: parsed.data.serviceId,
+      // Log alanları skaler; kimlikler tek satırda birleştiriliyor.
+      serviceIds: parsed.data.serviceIds.join(','),
       date: parsed.data.date,
       startMin: parsed.data.startMin,
       paymentMethod: parsed.data.paymentMethod,
@@ -91,7 +100,7 @@ export async function createBookingAction(
     const reservation = await createReservation({
       businessId: parsed.data.businessId,
       branchId: parsed.data.branchId,
-      serviceId: parsed.data.serviceId,
+      serviceIds: parsed.data.serviceIds,
       staffId: parsed.data.staffId,
       customerId: user.id,
       date: parsed.data.date,

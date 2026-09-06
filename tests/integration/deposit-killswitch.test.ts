@@ -63,7 +63,7 @@ describe('kapora ana şalteri', () => {
     // geliri sessizce durdururdu. Kapatmak açık bir eylem olmalı.
     expect(depositsEnabledPlatformWide()).toBe(true);
 
-    const quote = await quoteBooking({ businessId: f.business.id, serviceId: f.service.id });
+    const quote = await quoteBooking({ businessId: f.business.id, serviceIds: [f.service.id] });
     expect(quote.deposit).toBeGreaterThan(0);
   });
 
@@ -71,7 +71,7 @@ describe('kapora ana şalteri', () => {
     process.env['DEPOSITS_ENABLED'] = 'false';
 
     expect(depositsEnabledPlatformWide()).toBe(false);
-    const quote = await quoteBooking({ businessId: f.business.id, serviceId: f.service.id });
+    const quote = await quoteBooking({ businessId: f.business.id, serviceIds: [f.service.id] });
     expect(quote.deposit).toBe(0);
   });
 
@@ -81,7 +81,7 @@ describe('kapora ana şalteri', () => {
     const created = await createReservation({
       businessId: f.business.id,
       branchId: f.branch.id,
-      serviceId: f.service.id,
+      serviceIds: [f.service.id],
       staffId: f.staffA.id,
       customerId: f.customer.id,
       date: f.date,

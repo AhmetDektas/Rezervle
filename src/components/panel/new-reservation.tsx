@@ -12,7 +12,8 @@ import { slotsAction } from '@/app/actions/booking';
 import { panelCreateReservationAction } from '@/app/actions/panel';
 import { hhmm, today } from '@/lib/time';
 import { money, duration } from '@/lib/format';
-import { CHANNELS, CHANNEL_LABEL, termsFor } from '@/lib/constants';
+import { CHANNELS, CHANNEL_LABEL, MAX_SERVICES_PER_BOOKING, termsFor } from '@/lib/constants';
+import { bookingTotals } from '@/lib/services';
 import { cn } from '@/lib/utils';
 import type { Slot } from '@/lib/availability';
 
@@ -22,7 +23,7 @@ export type PanelBookingData = {
   /** Etiketleri sektöre uyarlar: personel / saha / masa. */
   sector: string;
   branches: { id: string; name: string }[];
-  services: { id: string; name: string; durationMin: number; price: number }[];
+  services: { id: string; name: string; durationMin: number; bufferMin: number; price: number }[];
   staff: { id: string; displayName: string; branchId: string | null; serviceIds: string[] }[];
 };
 
@@ -42,7 +43,9 @@ export function NewReservationDialog({
   const [open, setOpen] = React.useState(defaultOpen);
 
   const [branchId, setBranchId] = React.useState(data.branches[0]?.id ?? '');
-  const [serviceId, setServiceId] = React.useState(data.services[0]?.id ?? '');
+  const [serviceIds, setServiceIds] = React.useState<string[]>(
+    data.services[0] ? [data.services[0].id] : [],
+  );
   const [staffId, setStaffId] = React.useState('ANY');
   const [date, setDate] = React.useState(defaultDate ?? today());
   const [startMin, setStartMin] = React.useState<number | null>(null);
@@ -57,17 +60,32 @@ export function NewReservationDialog({
   const [fields, setFields] = React.useState<Record<string, string>>({});
   const [error, setError] = React.useState<string | null>(null);
 
-  const service = data.services.find((s) => s.id === serviceId) ?? null;
+  const selected = data.services.filter((s) => serviceIds.includes(s.id));
+  const totals = bookingTotals(selected);
+  // Hizmetlerin hepsini veren personel.
   const eligible = data.staff.filter(
-    (s) => s.serviceIds.includes(serviceId) && (s.branchId === branchId || s.branchId === null),
+    (s) =>
+      serviceIds.every((id) => s.serviceIds.includes(id)) &&
+      (s.branchId === branchId || s.branchId === null),
   );
 
+  function toggleService(id: string) {
+    setServiceIds((prev) => {
+      if (!terms.multiService) return [id];
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_SERVICES_PER_BOOKING) return prev;
+      return [...prev, id];
+    });
+    setStaffId('ANY');
+    setStartMin(null);
+  }
+
   React.useEffect(() => {
-    if (!open || !serviceId || !branchId) return;
+    if (!open || serviceIds.length === 0 || !branchId) return;
     let cancelled = false;
     setLoading(true);
     setSlots(null);
-    slotsAction({ branchId, serviceId, staffId, date })
+    slotsAction({ branchId, serviceIds, staffId, date })
       .then((result) => {
         if (cancelled) return;
         setSlots(result.ok ? result.data : []);
@@ -79,7 +97,7 @@ export function NewReservationDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, branchId, serviceId, staffId, date]);
+  }, [open, branchId, serviceIds, staffId, date]);
 
   async function submit() {
     setPending(true);
@@ -88,7 +106,7 @@ export function NewReservationDialog({
     const result = await panelCreateReservationAction(data.slug, {
       businessId: data.businessId,
       branchId,
-      serviceId,
+      serviceIds,
       staffId,
       date,
       startMin: startMin ?? -1,
@@ -151,21 +169,51 @@ export function NewReservationDialog({
               </Field>
             ) : null}
 
-            <Field label="Hizmet" htmlFor="n-service" error={fields['serviceId']}>
-              <Select
-                id="n-service"
-                value={serviceId}
-                onChange={(e) => {
-                  setServiceId(e.target.value);
-                  setStaffId('ANY');
-                }}
-              >
-                {data.services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} · {duration(s.durationMin)} · {money(s.price)}
-                  </option>
-                ))}
-              </Select>
+            <Field
+              label={selected.length > 1 ? 'Hizmetler' : 'Hizmet'}
+              error={fields['serviceIds']}
+              {...(terms.multiService
+                ? { hint: 'Birden fazla seçilebilir; süre ve tutar toplanır.' }
+                : {})}
+            >
+              <div className="max-h-52 space-y-1.5 overflow-y-auto rounded-xl border border-line p-2">
+                {data.services.map((s) => {
+                  const secili = serviceIds.includes(s.id);
+                  const kapali =
+                    terms.multiService && !secili && serviceIds.length >= MAX_SERVICES_PER_BOOKING;
+                  return (
+                    <label
+                      key={s.id}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13.5px]',
+                        secili ? 'bg-brand-50' : 'hover:bg-sunken',
+                        kapali ? 'cursor-not-allowed opacity-55' : 'cursor-pointer',
+                      )}
+                    >
+                      <input
+                        type={terms.multiService ? 'checkbox' : 'radio'}
+                        name="panel-service"
+                        checked={secili}
+                        disabled={kapali}
+                        onChange={() => toggleService(s.id)}
+                        className={cn(
+                          'h-4 w-4 shrink-0 border-line-strong text-brand-500 focus:ring-brand-500',
+                          terms.multiService && 'rounded',
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                      <span className="tnum shrink-0 text-ink-3">
+                        {duration(s.durationMin)} · {money(s.price)}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selected.length > 0 ? (
+                <p className="tnum mt-1.5 text-[12.5px] text-ink-3">
+                  Toplam: {duration(totals.durationMin)} · {money(totals.price)}
+                </p>
+              ) : null}
             </Field>
 
             <Field label={terms.resource} htmlFor="n-staff">
@@ -192,7 +240,7 @@ export function NewReservationDialog({
 
           <div className="mt-4">
             <p className="text-[13px] font-medium text-ink-2">
-              Saat {service ? `· ${duration(service.durationMin)}` : ''}
+              Saat {selected.length > 0 ? `· ${duration(totals.durationMin)}` : ''}
             </p>
             <div className="mt-2">
               {loading ? (

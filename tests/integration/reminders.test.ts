@@ -29,6 +29,11 @@ async function randevuYaz(over: Record<string, unknown> = {}) {
       businessId: fx.business.id,
       branchId: fx.branch.id,
       serviceId: fx.service.id,
+      services: {
+        create: [
+          { serviceId: fx.service.id, sortOrder: 0, name: 'Test', durationMin: 60, bufferMin: 15, price: 1000 },
+        ],
+      },
       staffId: fx.staffA.id,
       customerId: fx.customer.id,
       date: '2026-09-06',

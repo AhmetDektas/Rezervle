@@ -242,6 +242,7 @@ model Service {
 
   staffLinks   StaffService[]
   reservations Reservation[]
+  bookedLines  ReservationService[]
 
   @@index([businessId, active])
 }
@@ -385,9 +386,12 @@ model Reservation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  history ReservationStatusHistory[]
-  review  Review?
-  payment Payment?
+  history  ReservationStatusHistory[]
+  review   Review?
+  payment  Payment?
+  // Randevudaki tum hizmetler. serviceId ilkini gosterir; bu liste
+  // hepsini tasir. Bkz. model ReservationService.
+  services ReservationService[]
 
   @@index([businessId, date])
   @@index([staffId, date])
@@ -399,6 +403,38 @@ model Reservation {
   // gezerlerdi ve randevu tablosu en hizli buyuyen tablo.
   @@index([paymentDeadline])
   @@index([startsAt, reminderSentAt])
+}
+
+/// Bir randevudaki hizmet kalemi.
+///
+/// Randevu tek hizmete kurulmustu; musteri sac kesimi + sakal duzeltmeyi tek
+/// randevuda alamiyordu. Hizmetler ayri tabloya alindi.
+///
+/// `Reservation.serviceId` KALDI ve listenin ILKINI gosteriyor. Kaldirilmadi
+/// cunku bildirim, hatirlatma, rapor, degerlendirme ve panel listeleri tek
+/// hizmet adi uzerinden calisiyor; hepsini ayni anda cevirmek, calisan bir
+/// yolu tek seferde kirma riski demekti. Toplam sure ve tutar zaten randevu
+/// kaydinda (endMin/blockEnd/price) duruyor.
+///
+/// Alanlar randevu anindaki haliyle DONDURULUR: isletme sonradan hizmetin
+/// adini, suresini ya da fiyatini degistirse bile gecmis randevu degismez.
+/// Kapora ile ayni gerekce.
+model ReservationService {
+  id            String      @id @default(cuid())
+  reservationId String
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  /// Musterinin sectigi sira; sure hesabi ve ekranda listeleme buna gore.
+  sortOrder     Int         @default(0)
+
+  name        String
+  durationMin Int
+  bufferMin   Int
+  price       Int
+
+  @@unique([reservationId, serviceId])
+  @@index([serviceId])
 }
 
 model ReservationStatusHistory {

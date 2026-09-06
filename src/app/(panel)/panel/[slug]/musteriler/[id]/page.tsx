@@ -13,6 +13,7 @@ import { StatCard } from '@/components/panel/stat-card';
 import { money, dayWithWeekday, phone as fmtPhone, ago, relativeDay } from '@/lib/format';
 import { hhmm, today } from '@/lib/time';
 import type { ReservationStatus } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Müşteri kartı' };
 export const dynamic = 'force-dynamic';
@@ -51,6 +52,8 @@ export default async function CustomerDetailPage({ params }: { params: Params })
       take: 40,
       include: {
         service: { select: { name: true } },
+        // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+        _count: { select: { services: true } },
         staff: { select: { displayName: true } },
       },
     }),
@@ -129,7 +132,7 @@ export default async function CustomerDetailPage({ params }: { params: Params })
                   <p className="text-[12.5px] text-ink-3">{hhmm(r.startMin)}</p>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] text-navy">{r.service.name}</p>
+                  <p className="text-[14px] text-navy">{serviceLabel(r.service.name, r._count.services)}</p>
                   <p className="text-[12.5px] text-ink-3">{r.staff.displayName}</p>
                 </div>
                 <StatusBadge status={r.status as ReservationStatus} />

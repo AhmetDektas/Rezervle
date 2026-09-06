@@ -19,7 +19,7 @@ function book(over: Partial<Parameters<typeof createReservation>[0]> = {}) {
   return createReservation({
     businessId: f.business.id,
     branchId: f.branch.id,
-    serviceId: f.service.id,
+    serviceIds: [f.service.id],
     staffId: f.staffA.id,
     customerId: f.customer.id,
     date: f.date,
@@ -97,6 +97,11 @@ describe('randevu sağlık denetimi', () => {
         businessId: f.business.id,
         branchId: f.branch.id,
         serviceId: f.service.id,
+        services: {
+          create: [
+            { serviceId: f.service.id, sortOrder: 0, name: 'Test', durationMin: 60, bufferMin: 15, price: 1000 },
+          ],
+        },
         staffId: f.staffA.id,
         customerId: f.other.id,
         date: f.date,

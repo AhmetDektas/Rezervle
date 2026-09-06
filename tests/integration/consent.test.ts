@@ -25,7 +25,7 @@ function randevu(customerId: string, channel: 'ONLINE' | 'PHONE' = 'ONLINE', sta
   return createReservation({
     businessId: fx.business.id,
     branchId: fx.branch.id,
-    serviceId: fx.service.id,
+    serviceIds: [fx.service.id],
     staffId: fx.staffA.id,
     customerId,
     date: addDays(today(), 1),

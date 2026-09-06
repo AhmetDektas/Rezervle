@@ -13,7 +13,8 @@ import { useToast } from '@/components/ui/toast';
 import { slotsAction, createBookingAction, quoteBookingAction } from '@/app/actions/booking';
 import { money, duration, relativeDay, weekdayShort, monthShort } from '@/lib/format';
 import { hhmm, today, addDays } from '@/lib/time';
-import { BOOKING_HORIZON_DAYS, termsFor } from '@/lib/constants';
+import { BOOKING_HORIZON_DAYS, MAX_SERVICES_PER_BOOKING, termsFor } from '@/lib/constants';
+import { bookingTotals } from '@/lib/services';
 import { cn } from '@/lib/utils';
 import type { Slot } from '@/lib/availability';
 import { depositFor, depositPolicyText, type DepositPolicy } from '@/lib/deposit';
@@ -28,7 +29,15 @@ export type BookingBusiness = {
   /** Kapora paketi ayarları; kapalıysa hiçbir yerde görünmez. */
   deposit: DepositPolicy;
   branches: { id: string; name: string; district: string; address: string }[];
-  services: { id: string; name: string; description: string; durationMin: number; price: number }[];
+  services: {
+    id: string;
+    name: string;
+    description: string;
+    durationMin: number;
+    /** Hizmet sonrası hazırlık payı; toplam süre hesabı için gerekli. */
+    bufferMin: number;
+    price: number;
+  }[];
   staff: {
     id: string;
     displayName: string;
@@ -59,7 +68,11 @@ export function BookingFlow({
   );
 
   const [step, setStep] = React.useState(initialServiceId ? 1 : 0);
-  const [serviceId, setServiceId] = React.useState(initialServiceId ?? '');
+  // Seçim sırası korunuyor: ekranda o sırayla listeleniyor ve son hizmetin
+  // tamponu uygulanıyor (bkz. bookingTotals).
+  const [serviceIds, setServiceIds] = React.useState<string[]>(
+    initialServiceId ? [initialServiceId] : [],
+  );
   const [branchId, setBranchId] = React.useState(business.branches[0]?.id ?? '');
   const [staffId, setStaffId] = React.useState('ANY');
   const [date, setDate] = React.useState(today());
@@ -73,8 +86,29 @@ export function BookingFlow({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const service = business.services.find((s) => s.id === serviceId) ?? null;
+  const selected = React.useMemo(
+    () =>
+      serviceIds
+        .map((id) => business.services.find((s) => s.id === id))
+        .filter((s): s is BookingBusiness['services'][number] => Boolean(s)),
+    [serviceIds, business.services],
+  );
+  const totals = bookingTotals(selected);
   const branch = business.branches.find((b) => b.id === branchId) ?? null;
+
+  function toggleService(id: string) {
+    setServiceIds((prev) => {
+      // Restoran/halı saha/salon: hizmet aynı şeyin varyantı, seçim tekli.
+      if (!terms.multiService) return [id];
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_SERVICES_PER_BOOKING) return prev;
+      return [...prev, id];
+    });
+    // Hizmet listesi değişince personel ve saat yeniden seçilmeli: eski
+    // personel yeni hizmeti vermiyor olabilir, eski saate yeni süre sığmayabilir.
+    setStaffId('ANY');
+    setStartMin(null);
+  }
 
   // Kampanya kodunun geçerliliği ve indirimi yalnızca sunucuda bilinir. Kod
   // girildiğinde tutarları sunucuya sorup öyle gösteriyoruz — ödeme ekranında
@@ -88,15 +122,32 @@ export function BookingFlow({
   const [promoError, setPromoError] = React.useState<string | null>(null);
   const [quoting, setQuoting] = React.useState(false);
 
-  const localPrice = service?.price ?? 0;
-  const localDeposit = service ? depositFor(business.deposit, localPrice) : 0;
+  const localPrice = totals.price;
+  const localDeposit = selected.length > 0 ? depositFor(business.deposit, localPrice) : 0;
   const finalPrice = quote?.finalPrice ?? localPrice;
   const discount = quote?.discount ?? 0;
   const depositAmount = quote?.deposit ?? localDeposit;
+  // Hizmetlerin HEPSİNİ veren personel. Birini veren de listeye girseydi,
+  // randevunun ortasında yapamayacağı bir işle karşılaşırdı.
   const eligibleStaff = business.staff.filter(
-    (s) => s.serviceIds.includes(serviceId) && (s.branchId === branchId || s.branchId === null),
+    (s) =>
+      serviceIds.every((id) => s.serviceIds.includes(id)) &&
+      (s.branchId === branchId || s.branchId === null),
   );
   const staff = business.staff.find((s) => s.id === staffId) ?? null;
+
+  // Şubede hizmetlerin herhangi BIRINI veren var ama hepsini veren yoksa,
+  // sorun şube değil hizmet birleşimi. İki durumun mesajı farklı olmalı:
+  // "başka şube deneyin" burada kullanıcıyı yanlış yere gönderirdi.
+  const kombinasyonSorunu =
+    serviceIds.length > 1 &&
+    eligibleStaff.length === 0 &&
+    business.staff.some(
+      (s) =>
+        (s.branchId === branchId || s.branchId === null) &&
+        serviceIds.some((id) => s.serviceIds.includes(id)),
+    );
+
 
   const dates = React.useMemo(
     () => Array.from({ length: DATE_WINDOW }, (_, i) => addDays(today(), i)),
@@ -105,11 +156,11 @@ export function BookingFlow({
 
   // Seçim değiştiğinde saatler yeniden istenir; eski seçim geçersizse düşer.
   React.useEffect(() => {
-    if (step !== 2 || !serviceId || !branchId) return;
+    if (step !== 2 || serviceIds.length === 0 || !branchId) return;
     let cancelled = false;
     setLoadingSlots(true);
     setSlots(null);
-    slotsAction({ branchId, serviceId, staffId, date })
+    slotsAction({ branchId, serviceIds, staffId, date })
       .then((result) => {
         if (cancelled) return;
         if (result.ok) {
@@ -126,12 +177,12 @@ export function BookingFlow({
     return () => {
       cancelled = true;
     };
-  }, [step, serviceId, branchId, staffId, date]);
+  }, [step, serviceIds, branchId, staffId, date]);
 
   // Kod veya hizmet değiştiğinde tutarları tazele. Kod boşsa sunucuya gitmeye
   // gerek yok: yerel hesap zaten doğru.
   React.useEffect(() => {
-    if (step !== 3 || !serviceId) return;
+    if (step !== 3 || serviceIds.length === 0) return;
     const code = promo.trim();
     if (!code) {
       setQuote(null);
@@ -141,7 +192,7 @@ export function BookingFlow({
     let cancelled = false;
     setQuoting(true);
     const timer = window.setTimeout(() => {
-      quoteBookingAction({ businessId: business.id, serviceId, promotionCode: code })
+      quoteBookingAction({ businessId: business.id, serviceIds, promotionCode: code })
         .then((result) => {
           if (cancelled) return;
           if (result.ok) {
@@ -161,7 +212,7 @@ export function BookingFlow({
       window.clearTimeout(timer);
       window.clearTimeout(timer);
     };
-  }, [step, serviceId, promo, business.id]);
+  }, [step, serviceIds, promo, business.id]);
 
   function goto(next: number) {
     setError(null);
@@ -170,9 +221,10 @@ export function BookingFlow({
   }
 
   async function submit() {
-    if (!service || !branch || startMin === null) return;
+    if (selected.length === 0 || !branch || startMin === null) return;
     if (!loggedIn) {
-      router.push(`/giris?next=${encodeURIComponent(`/isletme/${business.slug}/randevu?hizmet=${serviceId}`)}`);
+      const geri = `/isletme/${business.slug}/randevu?hizmet=${serviceIds.join(',')}`;
+      router.push(`/giris?next=${encodeURIComponent(geri)}`);
       return;
     }
     setSubmitting(true);
@@ -180,7 +232,7 @@ export function BookingFlow({
     const result = await createBookingAction({
       businessId: business.id,
       branchId,
-      serviceId,
+      serviceIds,
       staffId,
       date,
       startMin,
@@ -212,7 +264,7 @@ export function BookingFlow({
   }
 
   const canNext =
-    (step === 0 && Boolean(serviceId)) ||
+    (step === 0 && serviceIds.length > 0) ||
     (step === 1 && Boolean(branchId) && eligibleStaff.length > 0) ||
     (step === 2 && startMin !== null) ||
     step === 3;
@@ -246,43 +298,77 @@ export function BookingFlow({
         {step === 0 ? (
           <fieldset>
             <legend className="section-title">{terms.servicePrompt}</legend>
+            {terms.multiService ? (
+              <p className="mt-1 text-[13px] text-ink-3">
+                Birden fazla hizmet seçebilirsiniz; süreler ve tutarlar toplanır.
+              </p>
+            ) : null}
             <ul className="mt-3 space-y-2.5">
-              {business.services.map((s) => (
-                <li key={s.id}>
-                  <label
-                    className={cn(
-                      'flex cursor-pointer items-center gap-3 rounded-2xl border bg-surface p-4 transition',
-                      serviceId === s.id
-                        ? 'border-brand-500 ring-2 ring-brand-100'
-                        : 'border-line hover:border-brand-300',
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      name="service"
-                      value={s.id}
-                      checked={serviceId === s.id}
-                      onChange={() => {
-                        setServiceId(s.id);
-                        setStaffId('ANY');
-                        setStartMin(null);
-                      }}
-                      className="h-[18px] w-[18px] shrink-0 border-line-strong text-brand-500 focus:ring-brand-500"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14.5px] font-medium text-navy">{s.name}</p>
-                      {s.description ? (
-                        <p className="mt-0.5 line-clamp-1 text-[13px] text-ink-3">{s.description}</p>
-                      ) : null}
-                      <p className="tnum mt-1 text-[12.5px] text-ink-3">{duration(s.durationMin)}</p>
-                    </div>
-                    <span className="tnum shrink-0 text-[15px] font-semibold text-navy">
-                      {s.price === 0 ? 'Ücretsiz' : money(s.price)}
-                    </span>
-                  </label>
-                </li>
-              ))}
+              {business.services.map((s) => {
+                const secili = serviceIds.includes(s.id);
+                // Sınır dolduğunda seçili olmayanlar kapanır; seçili olanlar
+                // her zaman kaldırılabilir kalmalı, yoksa kullanıcı sınıra
+                // takılıp seçimini geri alamazdı.
+                const kapali =
+                  terms.multiService && !secili && serviceIds.length >= MAX_SERVICES_PER_BOOKING;
+                return (
+                  <li key={s.id}>
+                    <label
+                      className={cn(
+                        'flex items-center gap-3 rounded-2xl border bg-surface p-4 transition',
+                        secili
+                          ? 'border-brand-500 ring-2 ring-brand-100'
+                          : 'border-line hover:border-brand-300',
+                        kapali ? 'cursor-not-allowed opacity-55' : 'cursor-pointer',
+                      )}
+                    >
+                      <input
+                        type={terms.multiService ? 'checkbox' : 'radio'}
+                        name="service"
+                        value={s.id}
+                        checked={secili}
+                        disabled={kapali}
+                        onChange={() => toggleService(s.id)}
+                        className={cn(
+                          'h-[18px] w-[18px] shrink-0 border-line-strong text-brand-500 focus:ring-brand-500',
+                          terms.multiService && 'rounded',
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14.5px] font-medium text-navy">{s.name}</p>
+                        {s.description ? (
+                          <p className="mt-0.5 line-clamp-1 text-[13px] text-ink-3">{s.description}</p>
+                        ) : null}
+                        <p className="tnum mt-1 text-[12.5px] text-ink-3">{duration(s.durationMin)}</p>
+                      </div>
+                      <span className="tnum shrink-0 text-[15px] font-semibold text-navy">
+                        {s.price === 0 ? 'Ücretsiz' : money(s.price)}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
+
+            {terms.multiService && selected.length > 0 ? (
+              <div
+                aria-live="polite"
+                className="tnum mt-4 flex items-center justify-between rounded-2xl border border-line bg-sunken/60 px-4 py-3 text-[14px]"
+              >
+                <span className="text-ink-2">
+                  {selected.length} hizmet · {duration(totals.durationMin)}
+                </span>
+                <span className="font-semibold text-navy">
+                  {totals.price === 0 ? 'Ücretsiz' : money(totals.price)}
+                </span>
+              </div>
+            ) : null}
+
+            {terms.multiService && serviceIds.length >= MAX_SERVICES_PER_BOOKING ? (
+              <p className="mt-2 text-[12.5px] text-ink-3">
+                Bir randevuda en fazla {MAX_SERVICES_PER_BOOKING} hizmet seçilebilir.
+              </p>
+            ) : null}
           </fieldset>
         ) : null}
 
@@ -324,12 +410,26 @@ export function BookingFlow({
             <fieldset>
               <legend className="section-title">{terms.pickPrompt}</legend>
               {eligibleStaff.length === 0 ? (
-                <EmptyState
-                  className="mt-3"
-                  icon={<Users size={20} />}
-                  title={`Bu şubede uygun ${terms.resource.toLocaleLowerCase('tr-TR')} yok`}
-                  description="Başka bir şube veya seçenek denemeyi deneyin."
-                />
+                kombinasyonSorunu ? (
+                  <EmptyState
+                    className="mt-3"
+                    icon={<Users size={20} />}
+                    title="Seçtiğiniz hizmetleri birlikte veren kimse yok"
+                    description={`Bu şubede hizmetlerin her birini veren ${terms.resource.toLocaleLowerCase('tr-TR')} var, ama hepsini birden veren yok. Hizmetlerden birini çıkarabilir veya ayrı randevu alabilirsiniz.`}
+                    action={
+                      <Button variant="secondary" onClick={() => goto(0)}>
+                        Hizmetleri değiştir
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    className="mt-3"
+                    icon={<Users size={20} />}
+                    title={`Bu şubede uygun ${terms.resource.toLocaleLowerCase('tr-TR')} yok`}
+                    description="Başka bir şube veya seçenek denemeyi deneyin."
+                  />
+                )
               ) : (
                 <ul className="mt-3 space-y-2.5">
                   <li>
@@ -402,7 +502,9 @@ export function BookingFlow({
             </ul>
 
             <h2 className="section-title mt-6">Saat seçin</h2>
-            <p className="muted mt-0.5">{relativeDay(date)} · {service ? duration(service.durationMin) : ''}</p>
+            <p className="muted mt-0.5">
+              {relativeDay(date)} · {duration(totals.durationMin)}
+            </p>
 
             <div className="mt-3">
               {loadingSlots ? (
@@ -445,11 +547,25 @@ export function BookingFlow({
           </div>
         ) : null}
 
-        {step === 3 && service && branch ? (
+        {step === 3 && selected.length > 0 && branch ? (
           <div className="space-y-5">
             <h2 className="section-title">Randevu özeti</h2>
             <dl className="card divide-y divide-line">
-              <Row label="Hizmet" value={service.name} />
+              <Row
+                label={selected.length > 1 ? 'Hizmetler' : 'Hizmet'}
+                value={
+                  <ul className="space-y-1">
+                    {selected.map((x) => (
+                      <li key={x.id} className="tnum flex justify-between gap-3">
+                        <span>{x.name}</span>
+                        <span className="text-ink-3">
+                          {x.price === 0 ? 'Ücretsiz' : money(x.price)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                }
+              />
               <Row label="İşletme" value={`${business.name} · ${branch.name}`} />
               <Row
                 label={terms.resource}
@@ -463,7 +579,7 @@ export function BookingFlow({
                 label="Tarih ve saat"
                 value={`${relativeDay(date)} · ${startMin !== null ? hhmm(startMin) : '—'}`}
               />
-              <Row label="Süre" value={duration(service.durationMin)} />
+              <Row label="Süre" value={duration(totals.durationMin)} />
               <Row label="Adres" value={branch.address} />
             </dl>
 
@@ -593,11 +709,15 @@ export function BookingFlow({
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-[12.5px] text-ink-3">
-              {service ? service.name : 'Hizmet seçilmedi'}
+              {selected.length === 0
+                ? 'Hizmet seçilmedi'
+                : selected.length === 1
+                  ? selected[0]!.name
+                  : `${selected[0]!.name} +${selected.length - 1} hizmet`}
               {startMin !== null ? ` · ${relativeDay(date)} ${hhmm(startMin)}` : ''}
             </p>
             <p className="tnum text-[16px] font-semibold text-navy">
-              {!service ? '—' : finalPrice === 0 ? 'Ücretsiz' : money(finalPrice)}
+              {selected.length === 0 ? '—' : finalPrice === 0 ? 'Ücretsiz' : money(finalPrice)}
               {discount > 0 ? (
                 <span className="ml-1.5 text-[12px] font-normal text-ink-3 line-through">
                   {money(localPrice)}
@@ -765,7 +885,7 @@ function PaymentOption({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 px-4 py-3">
       <dt className="shrink-0 text-[13px] text-ink-3">{label}</dt>

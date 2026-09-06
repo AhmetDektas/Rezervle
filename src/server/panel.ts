@@ -114,6 +114,8 @@ export async function dayAgenda(businessId: string, date: string, branchId?: str
     orderBy: [{ startMin: 'asc' }],
     include: {
       service: { select: { name: true, durationMin: true, bufferMin: true } },
+      // Ek hizmetlerin varlığı günün programında da görünsün.
+      _count: { select: { services: true } },
       staff: { select: { id: true, displayName: true, hue: true } },
       customer: { select: { id: true, name: true, phone: true } },
       branch: { select: { id: true, name: true } },

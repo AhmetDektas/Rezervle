@@ -47,7 +47,14 @@ export default async function BookingPage({
       services: {
         where: { active: true },
         orderBy: [{ sortOrder: 'asc' }, { price: 'asc' }],
-        select: { id: true, name: true, description: true, durationMin: true, price: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          durationMin: true,
+          bufferMin: true,
+          price: true,
+        },
       },
       staff: {
         where: { active: true },

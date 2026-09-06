@@ -17,9 +17,10 @@ import { MENULER } from './seed-data-wave2';
 import './seed-catalog';
 import { MUTFAK_MENULERI, RESTORAN_MUTFAK } from './seed-menus';
 import { depositFor, type DepositPolicy } from '../src/lib/deposit';
-import { CONSENT_KINDS, CONSENT_VERSION } from '../src/lib/constants';
+import { CONSENT_KINDS, CONSENT_VERSION, termsFor } from '../src/lib/constants';
 import { subeKoordinat } from './seed-data';
 import { PLANS } from '../src/lib/plans';
+import { bookingTotals } from '../src/lib/services';
 
 const prisma = new PrismaClient();
 
@@ -268,6 +269,11 @@ async function main(): Promise<void> {
     depositAmount: number; depositStatus: string;
   };
   const reservations: ResRow[] = [];
+  /** Randevu kalemleri; randevularla aynı turda üretilir. */
+  const reservationLines: {
+    reservationId: string; serviceId: string; sortOrder: number;
+    name: string; durationMin: number; bufferMin: number; price: number;
+  }[] = [];
   let staffAccounts = 0;
 
   for (const b of BUSINESSES) {
@@ -481,9 +487,22 @@ async function main(): Promise<void> {
           const idx = pick(s.serviceIdx);
           const service = services[idx];
           if (!service) break;
+          // Randevuların bir kısmı çok hizmetli: müşteri sac kesimi + sakal
+          // düzeltmeyi tek randevuda alabiliyor. Demo verisinin bunu
+          // göstermesi lazım, yoksa özellik yalnızca kodda var olur.
+          // Yalnızca hizmetin "işlem" olduğu sektörlerde: restoranda masa
+          // boyutu, halı sahada kiralama süresi seçiliyor ve ikisini birden
+          // içeren bir kayıt kendi kuralımıza aykırı olurdu.
+          const ikinciIdx =
+            termsFor(b.sector).multiService && chance(0.18)
+              ? pick(s.serviceIdx.filter((i) => i !== idx))
+              : undefined;
+          const ikinci = ikinciIdx === undefined ? null : (services[ikinciIdx] ?? null);
+          const kalemler = ikinci ? [service, ikinci] : [service];
+          const toplam = bookingTotals(kalemler);
           const start = cursor;
-          const end = start + service.durationMin;
-          const block = end + service.bufferMin;
+          const end = start + toplam.durationMin;
+          const block = end + toplam.bufferMin;
           if (end > bh.closeMin) break;
           // Öğle molasını atla (yalnızca kişi bazlı sektörlerde var)
           if (hasLunchBreak(b.sector) && start < 840 && block > 780) {
@@ -497,7 +516,7 @@ async function main(): Promise<void> {
               : d === 0
                 ? chance(0.5) ? 'COMPLETED' : 'CONFIRMED'
                 : chance(0.72) ? 'CONFIRMED' : 'PENDING';
-            const discount = chance(0.12) ? Math.round(service.price * 0.15) : 0;
+            const discount = chance(0.12) ? Math.round(toplam.price * 0.15) : 0;
             const channel = pick(['ONLINE', 'ONLINE', 'PHONE', 'WALK_IN']);
             // Kapora yalnızca online randevularda istenir.
             // Tohum verisi platform şalterini açık varsayar: amaç kapora
@@ -506,7 +525,7 @@ async function main(): Promise<void> {
               ? { ...b.deposit, platformEnabled: true }
               : null;
             const deposit =
-              policy && channel === 'ONLINE' ? depositFor(policy, service.price - discount) : 0;
+              policy && channel === 'ONLINE' ? depositFor(policy, toplam.price - discount) : 0;
             const depositStatus =
               deposit === 0
                 ? 'NONE'
@@ -521,12 +540,19 @@ async function main(): Promise<void> {
               customerId: customer.id, createdById: customer.id, date, startMin: start,
               endMin: end, blockEnd: block, startsAt: toUtc(date, start), endsAt: toUtc(date, end),
               status: st, channel,
-              price: service.price, discount, finalPrice: service.price - discount,
+              price: toplam.price, discount, finalPrice: toplam.price - discount,
               depositAmount: deposit, depositStatus,
               note: chance(0.15) ? pick(['Otoparka ihtiyacım var.', 'İlk kez geliyorum.', 'Biraz gecikebilirim.']) : null,
               slotKey: st === 'CANCELLED' ? null : `${s.member.id}:${date}:${start}`,
               createdAt: toUtc(addDays(date, -int(1, 10)), int(540, 1200)),
             });
+            const resId = reservations[reservations.length - 1]!.id;
+            kalemler.forEach((k, i) =>
+              reservationLines.push({
+                reservationId: resId, serviceId: k.id, sortOrder: i,
+                name: k.name, durationMin: k.durationMin, bufferMin: k.bufferMin, price: k.price,
+              }),
+            );
             made++;
             cursor = block + int(0, 2) * 15;
           } else {
@@ -541,6 +567,9 @@ async function main(): Promise<void> {
   // Toplu yazım: tek tek create yerine createMany (tohum hızlı kalsın).
   for (let i = 0; i < reservations.length; i += 500) {
     await prisma.reservation.createMany({ data: reservations.slice(i, i + 500) });
+  }
+  for (let i = 0; i < reservationLines.length; i += 500) {
+    await prisma.reservationService.createMany({ data: reservationLines.slice(i, i + 500) });
   }
   await prisma.reservationStatusHistory.createMany({
     data: reservations.map((r) => ({

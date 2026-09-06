@@ -29,6 +29,7 @@ import {
   type ReservationStatus,
   type Channel,
 } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Randevu detayı' };
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,7 @@ export default async function ReservationDetailPage({
       business: { select: { name: true, slug: true, phone: true, ratingAvg: true, ratingCount: true } },
       branch: true,
       service: true,
+      services: { orderBy: { sortOrder: 'asc' } },
       staff: { select: { displayName: true, title: true, hue: true } },
       payment: true,
       review: true,
@@ -111,7 +113,9 @@ export default async function ReservationDetailPage({
             >
               {reservation.business.name}
             </Link>
-            <p className="mt-0.5 text-[14px] text-ink-2">{reservation.service.name}</p>
+            <p className="mt-0.5 text-[14px] text-ink-2">
+              {serviceLabel(reservation.service.name, reservation.services.length)}
+            </p>
             {reservation.business.ratingCount > 0 ? (
               <div className="mt-1.5">
                 <Rating value={reservation.business.ratingAvg} count={reservation.business.ratingCount} />
@@ -147,6 +151,20 @@ export default async function ReservationDetailPage({
         </div>
 
         <dl className="divide-y divide-line">
+          {/* Kalemler randevu anındaki adı ve fiyatıyla dondurulmuş; işletme
+              hizmeti sonradan değiştirse bile müşteri ne aldığını görüyor. */}
+          <Row label={reservation.services.length > 1 ? 'Hizmetler' : 'Hizmet'}>
+            <ul className="space-y-1">
+              {reservation.services.map((x) => (
+                <li key={x.id} className="tnum flex justify-between gap-4">
+                  <span>{x.name}</span>
+                  <span className="text-ink-3">
+                    {duration(x.durationMin)} · {x.price === 0 ? 'Ücretsiz' : money(x.price)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Row>
           <Row label="Tarih">
             <span className="tnum">{dayWithWeekday(reservation.date)}</span>
           </Row>
@@ -247,7 +265,11 @@ export default async function ReservationDetailPage({
         <ReservationActions
           reservationId={reservation.id}
           branchId={reservation.branchId}
-          serviceId={reservation.serviceId}
+          serviceIds={reservation.services.map((x) => x.serviceId)}
+          span={{
+            durationMin: reservation.endMin - reservation.startMin,
+            bufferMin: reservation.blockEnd - reservation.endMin,
+          }}
           staffId={reservation.staffId}
           canModify={modifiable}
           canReview={status === 'COMPLETED' && !reservation.review}

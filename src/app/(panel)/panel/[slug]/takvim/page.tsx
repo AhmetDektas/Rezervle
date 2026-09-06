@@ -7,6 +7,7 @@ import { CalendarView, type CalReservation } from '@/components/panel/calendar-v
 import type { CalStaff } from '@/components/panel/calendar-day';
 import { today, addDays, weekdayOf } from '@/lib/time';
 import type { Channel, ReservationStatus } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Takvim' };
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,8 @@ export default async function CalendarPage({
       orderBy: [{ date: 'asc' }, { startMin: 'asc' }],
       include: {
         service: { select: { name: true } },
+        // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+        _count: { select: { services: true } },
         staff: { select: { id: true, displayName: true, hue: true } },
         customer: { select: { id: true, name: true, phone: true } },
         branch: { select: { name: true } },
@@ -95,7 +98,7 @@ export default async function CalendarPage({
     blockEnd: r.blockEnd,
     status: r.status as ReservationStatus,
     customerName: r.customer.name,
-    serviceName: r.service.name,
+    serviceName: serviceLabel(r.service.name, r._count.services),
     price: r.finalPrice,
     date: r.date,
     staffName: r.staff.displayName,

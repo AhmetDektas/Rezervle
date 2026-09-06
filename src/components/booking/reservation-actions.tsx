@@ -21,7 +21,9 @@ import type { Slot } from '@/lib/availability';
 export type ReservationActionsProps = {
   reservationId: string;
   branchId: string;
-  serviceId: string;
+  serviceIds: string[];
+  /** Kaydın kendi süresi; erteleme bunu korur. */
+  span: { durationMin: number; bufferMin: number };
   staffId: string;
   canModify: boolean;
   canReview: boolean;
@@ -31,7 +33,8 @@ export type ReservationActionsProps = {
 export function ReservationActions({
   reservationId,
   branchId,
-  serviceId,
+  serviceIds,
+  span,
   staffId,
   canModify,
   canReview,
@@ -60,7 +63,7 @@ export function ReservationActions({
     let cancelled = false;
     setLoadingSlots(true);
     setSlots(null);
-    slotsAction({ branchId, serviceId, staffId, date, excludeReservationId: reservationId })
+    slotsAction({ branchId, serviceIds, span, staffId, date, excludeReservationId: reservationId })
       .then((result) => {
         if (cancelled) return;
         setSlots(result.ok ? result.data : []);
@@ -72,7 +75,7 @@ export function ReservationActions({
     return () => {
       cancelled = true;
     };
-  }, [moveOpen, date, branchId, serviceId, staffId, reservationId]);
+  }, [moveOpen, date, branchId, serviceIds, span, staffId, reservationId]);
 
   async function cancel() {
     setPending(true);

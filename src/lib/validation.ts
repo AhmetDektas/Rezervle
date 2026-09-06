@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CHANNELS, RESERVATION_STATUSES, PAYMENT_METHODS } from './constants';
+import { CHANNELS, RESERVATION_STATUSES, PAYMENT_METHODS, MAX_SERVICES_PER_BOOKING } from './constants';
 
 /** Türkiye cep telefonu: 5xx xxx xx xx (başında 0 veya +90 olabilir). */
 export const phoneSchema = z
@@ -67,7 +67,12 @@ export const minuteSchema = z.coerce.number().int().min(0).max(1439);
 export const bookingSchema = z.object({
   businessId: z.string().min(1),
   branchId: z.string().min(1, 'Şube seçin.'),
-  serviceId: z.string().min(1, 'Hizmet seçin.'),
+  serviceIds: z
+    .array(z.string().min(1))
+    .min(1, 'En az bir hizmet seçin.')
+    .max(MAX_SERVICES_PER_BOOKING, `Bir randevuda en fazla ${MAX_SERVICES_PER_BOOKING} hizmet seçilebilir.`)
+    // Aynı hizmet iki kez gönderilirse süre ve tutar iki katına çıkardı.
+    .refine((ids) => new Set(ids).size === ids.length, 'Aynı hizmet birden fazla kez seçilemez.'),
   staffId: z.string().min(1, 'Personel seçin.'),
   date: dateSchema,
   startMin: minuteSchema,

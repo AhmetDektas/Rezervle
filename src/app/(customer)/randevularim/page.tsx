@@ -11,6 +11,7 @@ import { BusinessCover } from '@/components/business/cover';
 import { money, relativeDay, duration } from '@/lib/format';
 import { hhmm, today, nowMinutes } from '@/lib/time';
 import type { ReservationStatus } from '@/lib/constants';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Randevularım' };
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,8 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
       business: { select: { name: true, slug: true, brandHue: true, category: { select: { sector: true } } } },
       branch: { select: { name: true, district: true } },
       service: { select: { name: true, durationMin: true } },
+      // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+      _count: { select: { services: true } },
       staff: { select: { displayName: true, hue: true } },
       review: { select: { id: true } },
     },
@@ -101,7 +104,9 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-[15px] font-semibold text-navy">{r.business.name}</p>
-                        <p className="mt-0.5 truncate text-[13.5px] text-ink-2">{r.service.name}</p>
+                        <p className="mt-0.5 truncate text-[13.5px] text-ink-2">
+                          {serviceLabel(r.service.name, r._count.services)}
+                        </p>
                       </div>
                       <StatusBadge status={r.status as ReservationStatus} />
                     </div>

@@ -9,6 +9,7 @@ import { money, dayWithWeekday, percent } from '@/lib/format';
 import { hhmm, today, addDays } from '@/lib/time';
 import { RESERVATION_STATUSES, type ReservationStatus } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { serviceLabel } from '@/lib/services';
 
 export const metadata: Metadata = { title: 'Randevular' };
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,8 @@ export default async function AdminReservationsPage({ searchParams }: { searchPa
       include: {
         business: { select: { name: true, slug: true } },
         service: { select: { name: true } },
+        // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
+        _count: { select: { services: true } },
         customer: { select: { name: true } },
         staff: { select: { displayName: true } },
       },
@@ -131,7 +134,7 @@ export default async function AdminReservationsPage({ searchParams }: { searchPa
                     </td>
                     <td className="px-4 py-3 text-[13.5px] text-ink-2">{r.customer.name}</td>
                     <td className="px-4 py-3 text-[13.5px] text-ink-2">
-                      {r.service.name}
+                      {serviceLabel(r.service.name, r._count.services)}
                       <span className="block text-[12px] text-ink-3">{r.staff.displayName}</span>
                     </td>
                     <td className="px-4 py-3">
