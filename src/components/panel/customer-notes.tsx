@@ -38,7 +38,7 @@ export function CustomerNoteForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-2">
+    <form method="post" onSubmit={submit} className="space-y-2">
       <Textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}

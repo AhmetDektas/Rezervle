@@ -79,7 +79,7 @@ export function GalleryManager({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={add} className="space-y-3">
+      <form method="post" onSubmit={add} className="space-y-3">
         <Field
           label="Görsel adresi"
           htmlFor="g-url"

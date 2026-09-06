@@ -68,7 +68,7 @@ export function BusinessProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
       <Field label="İşletme adı" htmlFor="bp-name" error={fields['name']} required>
         <Input id="bp-name" name="name" defaultValue={initial.name} required />
       </Field>
@@ -193,7 +193,7 @@ export function ReviewReply({
   }
 
   return (
-    <form onSubmit={submit} className="mt-2 space-y-2">
+    <form method="post" onSubmit={submit} className="mt-2 space-y-2">
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

@@ -89,7 +89,7 @@ export function AuthForm({ mode, showDemo }: { mode: 'login' | 'register'; showD
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-4" noValidate>
+      <form method="post" onSubmit={onSubmit} className="mt-5 space-y-4" noValidate>
         {mode === 'register' ? (
           <Field label="Ad soyad" htmlFor="name" error={fields['name']} required>
             <Input id="name" name="name" autoComplete="name" placeholder="Elif Yıldırım" required aria-invalid={Boolean(fields['name'])} />

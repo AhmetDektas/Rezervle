@@ -108,7 +108,7 @@ export function DepositSettings({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
       {error ? (
         <div
           role="alert"

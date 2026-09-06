@@ -335,7 +335,7 @@ export function CategoryEditor({
               {error}
             </div>
           ) : null}
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <Field label="Ad" htmlFor="c-name" required>
               <Input id="c-name" name="name" defaultValue={category?.name ?? ''} required />
             </Field>

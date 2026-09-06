@@ -39,7 +39,7 @@ export function ProfileForm({ initial, email }: { initial: ProfileValues; email:
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
+    <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
       <Field label="Ad soyad" htmlFor="p-name" error={fields['name']} required>
         <Input id="p-name" name="name" defaultValue={initial.name} required />
       </Field>

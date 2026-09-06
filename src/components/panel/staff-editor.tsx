@@ -95,7 +95,7 @@ export function StaffEditor({
           title={staff ? `${resource} düzenle` : `Yeni ${resource.toLocaleLowerCase('tr-TR')}`}
           description={`Yeni ${resource.toLocaleLowerCase('tr-TR')} varsayılan şube saatleriyle başlar; saatleri sonra düzenleyebilirsiniz.`}
         >
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <Field label={`${resource} adı`} htmlFor="st-name" error={fields['displayName']} required>
               <Input id="st-name" name="displayName" defaultValue={staff?.displayName ?? ''} required />
             </Field>
@@ -271,7 +271,7 @@ export function TimeOffEditor({
               {error}
             </div>
           ) : null}
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form method="post" onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Başlangıç" htmlFor="to-start" required>
                 <Input id="to-start" name="start" type="date" required />

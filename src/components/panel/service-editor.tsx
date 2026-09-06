@@ -86,7 +86,7 @@ export function ServiceEditor({
           title={service ? 'Hizmeti düzenle' : 'Yeni hizmet'}
           description="Süre ve tampon, takvimdeki blok uzunluğunu belirler."
         >
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <Field label="Hizmet adı" htmlFor="s-name" error={fields['name']} required>
               <Input id="s-name" name="name" defaultValue={service?.name ?? ''} required />
             </Field>

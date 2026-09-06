@@ -104,7 +104,7 @@ export function PromotionEditor({
             </div>
           ) : null}
 
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Kod"
