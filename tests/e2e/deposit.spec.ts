@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { login, logout, ACCOUNTS } from './helpers';
+import { test, expect, type Page } from './fixtures';
+import { login, logout, ACCOUNTS, resetRateLimits } from './helpers';
 
 /** Rezervasyon akışını "Onay" adımına kadar götürür; saat bulunamazsa null döner. */
 async function reachSummary(page: Page, slug: string): Promise<string | null> {
@@ -24,6 +24,11 @@ async function reachSummary(page: Page, slug: string): Promise<string | null> {
   }
   return null;
 }
+
+// Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
 
 test.describe('kapora — müşteri tarafı', () => {
   test('kapora açık işletmede tutar ve politika özet ekranında görünür', async ({ page }) => {
@@ -54,6 +59,15 @@ test.describe('kapora — müşteri tarafı', () => {
     test.skip(slot === null, 'uygun saat bulunamadı');
 
     await page.getByRole('button', { name: /öde ve onayla/ }).click();
+
+    // Kapora asenkron tahsil ediliyor (T2): müşteri önce 3DS'e gidiyor,
+    // randevu ancak webhook geldikten sonra kesinleşiyor. Eskiden bu adım
+    // yoktu ve test doğrudan randevu detayına düşüyordu.
+    await page.waitForURL(/\/odeme\/3ds/, { timeout: 25_000 });
+    await page.getByRole('button', { name: 'Ödemeyi onayla' }).click();
+    await page.waitForURL(/\/odeme\/donus/, { timeout: 25_000 });
+    await expect(page.getByText('Ödemeniz alındı')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('link', { name: 'Randevuma git' }).click();
     await page.waitForURL(/\/randevularim\/.+/, { timeout: 25_000 });
 
     const main = page.locator('#icerik');

@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { login, ACCOUNTS } from './helpers';
+import { test, expect, type Page } from './fixtures';
+import { login, ACCOUNTS, resetRateLimits } from './helpers';
 
 // Regression: BUG-001 — onay ekranı kaporayı indirimsiz fiyattan hesaplıyordu,
 // sunucu ise indirimli fiyattan tahsil ediyordu. Buton "₺1.700 öde ve onayla"
@@ -40,6 +40,11 @@ async function reachSummary(page: Page): Promise<boolean> {
   return false;
 }
 
+// Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
+
 test.describe('onay ekranı tutarları', () => {
   test('kampanya kodu tüm tutarları günceller ve indirimi gösterir', async ({ page }) => {
     await login(page, ACCOUNTS.customer);
@@ -73,6 +78,15 @@ test.describe('onay ekranı tutarları', () => {
     expect(shown, 'butonda bir tutar yazmalı').toBeTruthy();
 
     await page.getByRole('button', { name: /öde ve onayla/ }).click();
+
+    // Kapora asenkron (T2): 3DS'ten geçmeden randevu kesinleşmiyor. Bu
+    // regresyonun asıl sorusu değişmedi — gösterilen tutar ile tahsil edilen
+    // tutar aynı mı — ama yol artık bankadan geçiyor.
+    await page.waitForURL(/\/odeme\/3ds/, { timeout: 25_000 });
+    await page.getByRole('button', { name: 'Ödemeyi onayla' }).click();
+    await page.waitForURL(/\/odeme\/donus/, { timeout: 25_000 });
+    await expect(page.getByText('Ödemeniz alındı')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('link', { name: 'Randevuma git' }).click();
     await page.waitForURL(/\/randevularim\/.+/, { timeout: 25_000 });
 
     // Randevu detayındaki kapora satırı butondaki tutarla aynı olmalı.

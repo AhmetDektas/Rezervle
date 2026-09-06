@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { login, logout, ACCOUNTS } from './helpers';
 
 test.describe('işletme paneli', () => {
@@ -133,7 +133,12 @@ test.describe('sektöre göre terminoloji', () => {
   test('halı saha paneli gezinmede "Sahalar" gösterir', async ({ page }) => {
     await login(page, 'kemal@gulverenspor.com');
     await page.goto('/panel/gulveren-spor-tesisleri/personel');
-    await expect(page.getByRole('heading', { name: 'Sahalar' })).toBeVisible();
+    // Uzun süren koşuların sonunda bu rota ilk kez derleniyor ve geliştirme
+    // sunucusu 10 saniyelik varsayılan eşiği aşabiliyor. Üretimde aynı sayfa
+    // ~50 ms; gecikme üründe değil, dev derlemesinde.
+    await expect(page.getByRole('heading', { name: 'Sahalar' })).toBeVisible({
+      timeout: 25_000,
+    });
     await expect(page.getByRole('button', { name: 'Saha ekle' })).toBeVisible();
   });
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { login, logout, ACCOUNTS } from './helpers';
 
 const SLUG = 'beyaz-dis-poliklinigi';
@@ -163,17 +163,23 @@ test.describe('işletme yönetimi', () => {
     await login(page, ACCOUNTS.owner);
     await page.goto(`/panel/${SLUG}/ayarlar`);
 
+    // Açıklama her koşuda benzersiz: tohum galerisi artık dolu ve düşen bir
+    // koşudan kalan kayıt bir sonrakini yanıltıyordu ("Bekleme salonu" iki
+    // kez bulunuyordu). Test yalnızca KENDİ yarattığı kaydı görmeli.
+    const aciklama = `Bekleme salonu ${Date.now().toString(36)}`;
     await page.getByLabel('Görsel adresi').fill('https://ornek.test/salon.jpg');
-    await page.getByLabel('Açıklama (isteğe bağlı)').fill('Bekleme salonu');
+    await page.getByLabel('Açıklama (isteğe bağlı)').fill(aciklama);
     await page.getByRole('button', { name: 'Galeriye ekle' }).click();
 
-    await expect(page.locator('#icerik').getByText('Bekleme salonu')).toBeVisible({
+    await expect(page.locator('#icerik').getByText(aciklama)).toBeVisible({
       timeout: 15_000,
     });
 
-    await page.getByRole('button', { name: 'Görseli kaldır' }).first().click();
-    await page.getByRole('button', { name: 'Kaldır' }).click();
-    await expect(page.locator('#icerik').getByText('Bekleme salonu')).toBeHidden({
+    // Kendi görselini siliyor; `.first()` artık başkasının görseline denk gelir.
+    const kart = page.locator('li').filter({ hasText: aciklama });
+    await kart.getByRole('button', { name: 'Görseli kaldır' }).click();
+    await page.getByRole('button', { name: 'Kaldır', exact: true }).click();
+    await expect(page.locator('#icerik').getByText(aciklama)).toBeHidden({
       timeout: 15_000,
     });
   });

@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { login, ACCOUNTS } from './helpers';
+import { test, expect } from './fixtures';
+import { login, ACCOUNTS, resetRateLimits } from './helpers';
 
 // Aydınlatma metni "rızanızı profil sayfanızdan geri alabilirsiniz" diyor.
 // Geri alma yalnızca bir satırı kapatsaydı hiçbir şeyi değiştirmeyen bir düğme
@@ -25,6 +25,11 @@ async function rizayiAyarla(page: import('@playwright/test').Page, ver: boolean)
     await expect(rizaVer).toBeVisible({ timeout: 15_000 });
   }
 }
+
+// Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
 
 test.describe('açık rıza', () => {
   // Rıza durumu hesapta kalıcı; sıradaki testleri etkilememesi için geri veriliyor.

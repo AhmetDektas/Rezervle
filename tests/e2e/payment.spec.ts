@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { login, ACCOUNTS } from './helpers';
+import { test, expect, type Page } from './fixtures';
+import { login, ACCOUNTS, resetRateLimits } from './helpers';
 
 // Ödeme akışı asenkron: müşteri siteden ayrılıyor, sonucu webhook getiriyor.
 // Bu spec o yolun uçtan uca çalıştığını doğruluyor — sahte sağlayıcı bile
@@ -36,6 +36,11 @@ async function randevuAdimlari(page: Page) {
   await page.getByRole('button', { name: /öde ve onayla/ }).click();
 }
 
+// Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
+
 test.describe('3DS ödeme akışı', () => {
   test('onaylanan ödeme randevuyu kesinleştirir', async ({ page }) => {
     await login(page, ACCOUNTS.customer);
@@ -52,8 +57,13 @@ test.describe('3DS ödeme akışı', () => {
     await page.waitForURL(/\/odeme\/donus/, { timeout: 25_000 });
     await expect(page.getByText('Ödemeniz alındı')).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('link', { name: 'Randevuma git' }).click();
-    await expect(page).toHaveURL(/\/randevularim\/.+/);
+    // Mobilde alt sekme çubuğu sabit duruyor ve bağlantıyı örtebiliyor;
+    // önce görünür alana alıyoruz. Ardından gezinmeyi bekliyoruz —
+    // toHaveURL tıklamanın gezinmeyi başlatmasını beklemiyor.
+    const git = page.getByRole('link', { name: 'Randevuma git' });
+    await git.scrollIntoViewIfNeeded();
+    await git.click();
+    await page.waitForURL(/\/randevularim\/.+/, { timeout: 25_000 });
   });
 
   test('reddedilen ödemede randevu oluşmaz', async ({ page }) => {

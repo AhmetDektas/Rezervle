@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { login, logout, ACCOUNTS } from './helpers';
+import { test, expect } from './fixtures';
+import { login, logout, ACCOUNTS, resetRateLimits } from './helpers';
+
+// Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
 
 test.describe('müşteri randevu yolculuğu', () => {
   test('keşfetten randevuya kadar uçtan uca çalışır', async ({ page }) => {
