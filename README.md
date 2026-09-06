@@ -87,6 +87,10 @@ gibi belirli bir başlangıç durumuna güvenir.
 
 **Modüler monolit.** Alan sınırları klasörlerle korunur; mikroservis yok.
 
+> Kararların gerekçeleri, süreç topolojisi, ödeme ve webhook sözleşmesi:
+> **[docs/mimari.md](docs/mimari.md)**. Bilinen eksikler ve ertelenmiş
+> kalemler: **[TODOS.md](TODOS.md)**.
+
 ```
 src/
   app/

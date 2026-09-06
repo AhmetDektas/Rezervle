@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Shield, Store, Users, Layers, MessageSquareWarning, CalendarDays, LogOut, ExternalLink, Wallet,
-  ListChecks,
+  ListChecks, BarChart3,
 } from 'lucide-react';
 import { Logo } from '@/components/brand/logo';
 import { Avatar } from '@/components/ui/avatar';
@@ -18,6 +18,7 @@ const NAV = [
   { href: '/yonetim/degerlendirmeler', label: 'Değerlendirmeler', icon: MessageSquareWarning, exact: false },
   { href: '/yonetim/randevular', label: 'Randevular', icon: CalendarDays, exact: false },
   { href: '/yonetim/komisyon', label: 'Komisyon', icon: Wallet, exact: false },
+  { href: '/yonetim/analitik', label: 'Analitik', icon: BarChart3, exact: false },
   { href: '/yonetim/kuyruk', label: 'Kuyruk', icon: ListChecks, exact: false },
 ];
 

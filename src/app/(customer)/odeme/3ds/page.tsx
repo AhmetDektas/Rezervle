@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { currentUser } from '@/server/auth';
-import { paymentProvider } from '@/server/providers';
+import { usingMockPayments } from '@/server/providers';
 import { MockThreeDSForm } from '@/components/booking/mock-3ds-form';
 
 export const metadata: Metadata = { title: '3D Secure' };
@@ -25,7 +25,10 @@ export default async function MockThreeDSPage({
 }: {
   searchParams: Promise<{ ref?: string; kod?: string }>;
 }) {
-  if (paymentProvider().name !== 'mock') notFound();
+  // Çift kapı: sahte sağlayıcı dışında ve üretimde asla erişilemez. Taklit
+  // ödeme ekranının canlıda ulaşılabilir olması, gerçek sanılabilecek bir
+  // yüzey bırakmak olurdu.
+  if (!usingMockPayments() || process.env.NODE_ENV === 'production') notFound();
 
   const { ref, kod } = await searchParams;
   if (!ref || !kod) notFound();

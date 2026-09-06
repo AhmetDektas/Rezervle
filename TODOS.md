@@ -30,6 +30,11 @@ talep admin'e bildirim olarak düşer, çözüm elle yapılır. Bu kalem artık 
 tam hakemlik ekranını kapsıyor; "ilk kapora tahsilatından önce" kısıtı asgari
 kanalla karşılandı.
 
+**Durum (2026-09-05):** Asgari kanal YAZILDI. İtiraz metni ayrı bir tabloda
+değil, yöneticilere giden bildirim gövdesinde taşınıyor — elle çözülecek ilk
+vakalar için ayrı tablo gereksiz yapı olurdu. Tablo, akış gerçek vakalardan
+tasarlandığında doğru şekilde kurulur.
+
 **Efor:** M (human ~1 hafta / CC ~1-2 oturum) · **Öncelik:** P1
 **Bağımlı:** Gerçek ödeme (3. parça) canlıya çıkmadan önce.
 
@@ -123,3 +128,21 @@ fonksiyon. Webhook'u unutmak zaten varsayılan davranış. Bu kalem, T17/T19
 yazılırken sınırın oraya **eklenmemesi** gerektiğini hatırlatmak için var.
 
 **Efor:** XS (yalnızca dikkat) · **Öncelik:** P1 — T17/T19 ile aynı anda
+
+
+### T-04 · Ziyaret ölçümü (talep hunisinin eksik ilk adımı)
+
+**Ne:** Sayfa görüntüleme ve arama takibi; "ziyaret → rezervasyon" dönüşümü.
+
+**Neden:** Bugünkü talep hunisi rezervasyondan başlıyor. Kaç kişinin işletme
+sayfasına bakıp randevu almadan çıktığını bilmiyoruz — dönüşümü artırmak için
+en gerekli sayı tam olarak bu.
+
+**Şu anki durum:** Bilinçli olarak kapsam dışı. Sayfa görüntüleme takibi çerez
+ve açık rıza gerektiriyor; T8 ile yeni kurulan KVKK yüzeyini genişletmemek için
+ertelendi. `/yonetim/analitik` bu eksikliği ekranda açıkça yazıyor.
+
+**Nereden başlanır:** Rıza kutusuna "analitik çerezleri" maddesi + `Consent`
+tablosuna yeni bir `kind`. Tablo bunu kaldıracak şekilde tasarlandı.
+
+**Efor:** M · **Öncelik:** P2

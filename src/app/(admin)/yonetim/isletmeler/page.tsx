@@ -10,6 +10,7 @@ import { Rating } from '@/components/ui/rating';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ago } from '@/lib/format';
 import { BUSINESS_STATUSES, BUSINESS_STATUS_LABEL, type BusinessStatus } from '@/lib/constants';
+import { PLAN_STATUS_LABEL, planByKey, trialDaysLeft, type PlanStatus } from '@/lib/plans';
 import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'İşletmeler' };
@@ -112,6 +113,23 @@ export default async function AdminBusinessesPage({ searchParams }: { searchPara
                           Kapora paketi{b.depositEnabled ? ' · açık' : ' · işletme kapattı'}
                         </Badge>
                       ) : null}
+                      {/* Abonelik ana gelir: hangi işletmenin denemesi ne zaman
+                          bitiyor, panelde görünmeden takip edilemezdi. */}
+                      <Badge
+                        tone={
+                          b.planStatus === 'ACTIVE'
+                            ? 'green'
+                            : b.planStatus === 'PAST_DUE'
+                              ? 'red'
+                              : 'amber'
+                        }
+                      >
+                        {PLAN_STATUS_LABEL[b.planStatus as PlanStatus] ?? b.planStatus}
+                        {b.planStatus === 'TRIAL' && b.trialEndsAt
+                          ? ` · ${trialDaysLeft(b.trialEndsAt)} gün`
+                          : ''}
+                        {b.planPrice > 0 ? ` · ${planByKey(b.planKey).name}` : ' · paket seçilmedi'}
+                      </Badge>
                     </div>
                     <p className="mt-0.5 text-[13px] text-ink-3">
                       {b.category.name} · {[...new Set(b.branches.map((x) => x.district))].join(', ') || 'Şube yok'}

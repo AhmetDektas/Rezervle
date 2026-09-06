@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   LogOut,
+  UtensilsCrossed,
   Clock3,
   AlertTriangle,
 } from 'lucide-react';
@@ -26,8 +27,18 @@ import { Logo, LogoMark } from '@/components/brand/logo';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/lib/constants';
+import { trialDaysLeft } from '@/lib/plans';
 
-export type PanelBusiness = { id: string; name: string; slug: string; status: string };
+export type PanelBusiness = {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  planStatus?: string;
+  trialEndsAt?: Date | null;
+  /** Paket gerçekten seçildi mi (planPrice > 0). */
+  planChosen?: boolean;
+};
 
 const NAV = [
   { seg: '', label: 'Bugün', icon: LayoutDashboard },
@@ -35,6 +46,9 @@ const NAV = [
   { seg: 'randevular', label: 'Randevular', icon: ListChecks },
   { seg: 'musteriler', label: 'Müşteriler', icon: UserRound },
   { seg: 'hizmetler', label: 'Hizmetler', icon: Scissors },
+  // Menü yalnızca restoranda: kuaförün menüsü olmaz, boş bir sayfaya
+  // götüren gezinme maddesi gürültüdür.
+  { seg: 'menu', label: 'Menü', icon: UtensilsCrossed, restaurantOnly: true },
   { seg: 'personel', label: 'Personel', icon: Users, sectorLabel: true },
   { seg: 'subeler', label: 'Şubeler', icon: Building2 },
   { seg: 'kampanyalar', label: 'Kampanyalar', icon: Tag },
@@ -48,6 +62,7 @@ export function PanelShell({
   user,
   unread,
   resourcePlural,
+  showMenu,
   children,
 }: {
   business: PanelBusiness;
@@ -56,6 +71,8 @@ export function PanelShell({
   unread: number;
   /** "Personel" / "Sahalar" / "Masalar" — sektöre göre gezinme etiketi. */
   resourcePlural: string;
+  /** Restoran sektöründe menü sayfası gezinmede görünür. */
+  showMenu: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -67,7 +84,7 @@ export function PanelShell({
 
   const nav = (
     <nav aria-label="Panel gezinme" className="flex flex-col gap-0.5">
-      {NAV.map((item) => {
+      {NAV.filter((item) => showMenu || !('restaurantOnly' in item && item.restaurantOnly)).map((item) => {
         const href = item.seg ? `${base}/${item.seg}` : base;
         const active = activeSeg === item.seg;
         const Icon = item.icon;
@@ -218,11 +235,76 @@ export function PanelShell({
 
         <main id="icerik" className="min-w-0 flex-1 p-4 sm:p-6">
           <StatusNotice status={business.status} />
+          <PlanNotice business={business} />
           {children}
         </main>
       </div>
     </div>
   );
+}
+
+/**
+ * Abonelik durumu uyarısı.
+ *
+ * Deneme bitiş tarihi işletmenin göreceği tek yer burası olmamalı ama en
+ * görünür yeri burası: son günlerde uyarı sertleşiyor. Ödeme gecikse bile
+ * panel kapatılmıyor — işletmeyi kilitlemek, onun müşterisini cezalandırmak
+ * olurdu (bkz. plans.ts `planActive`).
+ */
+function PlanNotice({ business }: { business: PanelBusiness }) {
+  const durum = business.planStatus;
+  if (!durum || durum === 'ACTIVE') return null;
+
+  const kalan = trialDaysLeft(business.trialEndsAt ?? null);
+
+  if (durum === 'TRIAL') {
+    // İlk haftalarda hatırlatmaya gerek yok; son 14 gün kritik.
+    if (kalan > 14) {
+      return business.planChosen ? null : (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-brand-100 bg-brand-50/70 px-4 py-3 text-[13.5px] text-ink-2">
+          <span className="flex-1">
+            Deneme sürenizde paket seçmediniz. Seçtiğinizde kapora gibi pakete
+            bağlı özellikler açılır.
+          </span>
+          <Link href="/kayit/isletme/paket" className="font-medium text-brand-600 hover:underline">
+            Paket seç
+          </Link>
+        </div>
+      );
+    }
+    return (
+      <div
+        className={cn(
+          'mb-4 flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 text-[13.5px]',
+          kalan <= 3 ? 'border-danger-line bg-danger-soft text-danger' : 'border-warn-line bg-warn-soft text-warn',
+        )}
+      >
+        <Clock3 size={17} className="shrink-0" aria-hidden />
+        <span className="flex-1">
+          {kalan === 0
+            ? 'Deneme süreniz doldu. Kesintisiz devam için paketinizi onaylayın.'
+            : `Deneme sürenizin bitmesine ${kalan} gün kaldı.`}
+        </span>
+        <Link href="/kayit/isletme/paket" className="font-medium underline underline-offset-4">
+          Paketleri gör
+        </Link>
+      </div>
+    );
+  }
+
+  if (durum === 'PAST_DUE') {
+    return (
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-danger-line bg-danger-soft px-4 py-3 text-[13.5px] text-danger">
+        <AlertTriangle size={17} className="shrink-0" aria-hidden />
+        <span className="flex-1">
+          <span className="font-semibold">Ödemeniz bekleniyor.</span> Randevularınız
+          çalışmaya devam ediyor; lütfen destek ekibiyle iletişime geçin.
+        </span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 /**

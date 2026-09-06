@@ -14,6 +14,8 @@ import { prisma } from '@/lib/db';
 import { requireRole, requireBusinessAccess } from '@/server/auth';
 import { rangeStats, dayAgenda, utilizationStats } from '@/server/panel';
 import { auditReservations } from '@/server/audit';
+import { activationChecklist } from '@/server/activation';
+import { ActivationChecklist } from '@/components/panel/activation-checklist';
 import { StatCard, BarRow } from '@/components/panel/stat-card';
 import { StatusActions } from '@/components/panel/status-actions';
 import { IssueBadge, IssueNote } from '@/components/panel/issue-badge';
@@ -43,7 +45,8 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
   const t = today();
   const nm = nowMinutes();
 
-  const [stats, agenda, utilization, pendingSoon, pendingLater] = await Promise.all([
+  const [kurulum, stats, agenda, utilization, pendingSoon, pendingLater] = await Promise.all([
+    activationChecklist(business.id, slug),
     rangeStats(business.id, t, t),
     dayAgenda(business.id, t),
     utilizationStats(business.id, t, t),
@@ -96,6 +99,10 @@ export default async function PanelTodayPage({ params }: { params: Params }) {
           </Button>
         </div>
       </div>
+
+      {/* Başvuru formu kısa tutuldu (S11-2); bedeli onaydan sonra boş panel.
+          Liste o bedeli ödüyor ve tamamlanınca kendiliğinden kayboluyor. */}
+      <ActivationChecklist liste={kurulum} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

@@ -20,6 +20,7 @@ import {
   businessProfileSchema,
   depositSettingsSchema,
   payoutSchema,
+  menuItemSchema,
   fieldErrors,
 } from '@/lib/validation';
 import { WEEKDAYS, type ReservationStatus } from '@/lib/constants';
@@ -908,5 +909,90 @@ export async function updatePayoutAction(
     return undefined;
   }, { action: 'updatePayoutAction' });
   if (result.ok) touch(slug);
+  return result;
+}
+
+// --- Restoran menüsü ------------------------------------------------------
+
+/**
+ * Menü kalemi ekler/günceller.
+ *
+ * Menü rezervasyon tutarına girmiyor, bu yüzden para yolunda değil — ama yine
+ * de `run()` ve yetki kontrolünden geçiyor: işletme sınırı her yazma için
+ * aynı şekilde korunmalı, "önemsiz" veri diye bir istisna açılmamalı.
+ */
+export async function saveMenuItemAction(
+  input: unknown,
+): Promise<ActionResult<undefined> & { fields?: Record<string, string> }> {
+  const parsed = menuItemSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: 'Formu kontrol edin.', fields: fieldErrors(parsed.error) };
+  }
+  const d = parsed.data;
+
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    await assertBusinessAccess(user, d.businessId);
+    ctx.userId = user.id;
+    ctx.meta = { businessId: d.businessId };
+
+    const veri = {
+      category: d.category,
+      name: d.name,
+      description: d.description || null,
+      price: d.price,
+      sortOrder: d.sortOrder,
+    };
+
+    if (d.id) {
+      // where'e businessId de giriyor: başka işletmenin kalemini id tahmin
+      // ederek güncellemek mümkün olmasın.
+      const sonuc = await prisma.menuItem.updateMany({
+        where: { id: d.id, businessId: d.businessId },
+        data: veri,
+      });
+      if (sonuc.count === 0) throw new DomainError('Menü kalemi bulunamadı.', 'NOT_FOUND');
+    } else {
+      await prisma.menuItem.create({ data: { ...veri, businessId: d.businessId } });
+    }
+    return undefined;
+  }, { action: 'saveMenuItemAction' });
+
+  if (result.ok) revalidatePath('/panel');
+  return result;
+}
+
+/** Menü kalemini yayından kaldırır ya da geri alır. */
+export async function toggleMenuItemAction(
+  businessId: string,
+  id: string,
+  active: boolean,
+): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    await assertBusinessAccess(user, businessId);
+    ctx.userId = user.id;
+    const sonuc = await prisma.menuItem.updateMany({ where: { id, businessId }, data: { active } });
+    if (sonuc.count === 0) throw new DomainError('Menü kalemi bulunamadı.', 'NOT_FOUND');
+    return undefined;
+  }, { action: 'toggleMenuItemAction' });
+  if (result.ok) revalidatePath('/panel');
+  return result;
+}
+
+/** Menü kalemini kalıcı siler. */
+export async function deleteMenuItemAction(
+  businessId: string,
+  id: string,
+): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    await assertBusinessAccess(user, businessId);
+    ctx.userId = user.id;
+    const sonuc = await prisma.menuItem.deleteMany({ where: { id, businessId } });
+    if (sonuc.count === 0) throw new DomainError('Menü kalemi bulunamadı.', 'NOT_FOUND');
+    return undefined;
+  }, { action: 'deleteMenuItemAction' });
+  if (result.ok) revalidatePath('/panel');
   return result;
 }

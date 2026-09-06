@@ -19,6 +19,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Rating, ReviewStars } from '@/components/ui/rating';
 import { ReservationActions } from '@/components/booking/reservation-actions';
 import { money, duration, dayWithWeekday, phone as fmtPhone, ago } from '@/lib/format';
+import { DepositDispute } from '@/components/booking/deposit-dispute';
 import { hhmm } from '@/lib/time';
 import { DEPOSIT_STATUS_LABEL, type DepositStatus } from '@/lib/deposit';
 import {
@@ -215,6 +216,13 @@ export default async function ReservationDetailPage({
               </span>
             </div>
           ) : null}
+          {/* Kapora alınmışsa müşterinin bir muhatabı olmalı (E2). Bugüne
+              kadar depositStatus işletmenin ya da sistemin kararıyla değişiyor
+              ve itiraz edilecek hiçbir yer yoktu. */}
+          {reservation.depositAmount > 0 ? (
+            <DepositDispute reservationId={reservation.id} />
+          ) : null}
+
           <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2.5">
             <span className="text-[14px] font-medium text-navy">Toplam</span>
             <span className="tnum text-[18px] font-semibold text-navy">

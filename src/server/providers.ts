@@ -199,7 +199,28 @@ const mockPayments: PaymentProvider = {
   },
 };
 
+/**
+ * Yürürlükteki ödeme sağlayıcısı.
+ *
+ * Değişken okunmadan koşulsuz sahte sağlayıcı döndürmek, canlıya çıkarken
+ * yapılabilecek en pahalı sessiz hataydı: `PAYMENT_PROVIDER=iyzico` yazıp
+ * dağıtan biri hiçbir uyarı almadan sahte sağlayıcıyla çalışır, uygulama
+ * "ödeme alındı" der ve hiçbir para hareket etmezdi.
+ *
+ * Bu yüzden tanınmayan değer sessizce sahteye düşmüyor, hata fırlatıyor.
+ */
 export function paymentProvider(): PaymentProvider {
-  // PAYMENT_PROVIDER=iyzico olduğunda burada gerçek sağlayıcı döndürülür.
+  const secilen = process.env['PAYMENT_PROVIDER'] ?? 'mock';
+  if (secilen !== 'mock') {
+    throw new Error(
+      `PAYMENT_PROVIDER="${secilen}" için adaptör yazılmadı. Gerçek sağlayıcı bağlanana kadar ` +
+        'yalnızca "mock" desteklenir; kapora tahsilatı için DEPOSITS_ENABLED=false kullanın.',
+    );
+  }
   return mockPayments;
+}
+
+/** Sahte sağlayıcıyla mı çalışıyoruz? Üretim kontrolleri ve 3DS taklit ekranı bunu sorar. */
+export function usingMockPayments(): boolean {
+  return (process.env['PAYMENT_PROVIDER'] ?? 'mock') === 'mock';
 }

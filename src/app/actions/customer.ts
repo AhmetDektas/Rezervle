@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction } from '@/server/auth';
 import { profileSchema, reviewSchema, fieldErrors } from '@/lib/validation';
-import { notifyBusiness } from '@/server/notifications';
+import { notifyBusiness, notifyUser } from '@/server/notifications';
 import { grantConsent, revokeConsent } from '@/server/consent';
 import { RATE_LIMITS, enforceRateLimit } from '@/server/rate-limit';
 
@@ -153,5 +153,79 @@ export async function setConsentAction(granted: boolean): Promise<ActionResult<u
     return undefined;
   }, { action: 'setConsentAction' });
   if (result.ok) revalidatePath('/profil');
+  return result;
+}
+
+/**
+ * Kapora itirazı (E2).
+ *
+ * Tam hakemlik akışı ertelendi (TODOS T-E6); burada yapılan tek şey talebi
+ * yöneticilere ULAŞTIRMAK. "Muhatap bulunamıyor" durumu, ilk kapora
+ * tahsilatından önce kapanması gereken kapıydı.
+ *
+ * İtiraz metni bildirim gövdesinde taşınıyor: ayrı bir tablo, elle çözülecek
+ * ilk vakalar için gereksiz yapı olurdu. Akış vakalardan tasarlandığında
+ * tablo da o zaman doğru şekilde kurulur.
+ */
+export async function raiseDepositDisputeAction(input: {
+  reservationId: string;
+  message: string;
+}): Promise<ActionResult<undefined>> {
+  const mesaj = input.message.trim();
+  if (mesaj.length < 10) {
+    return { ok: false, error: 'Lütfen durumu birkaç cümleyle anlatın (en az 10 karakter).' };
+  }
+  if (mesaj.length > 1000) {
+    return { ok: false, error: 'Açıklama en fazla 1000 karakter olabilir.' };
+  }
+
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    ctx.userId = user.id;
+
+    const reservation = await prisma.reservation.findUnique({
+      where: { id: input.reservationId },
+      select: {
+        id: true,
+        code: true,
+        customerId: true,
+        depositAmount: true,
+        business: { select: { name: true } },
+      },
+    });
+    if (!reservation || reservation.customerId !== user.id) {
+      throw new DomainError('Randevu bulunamadı.', 'NOT_FOUND');
+    }
+    if (reservation.depositAmount === 0) {
+      throw new DomainError('Bu randevuda kapora alınmamış.', 'NO_DEPOSIT');
+    }
+    ctx.meta = { reservationId: reservation.id };
+
+    const yoneticiler = await prisma.user.findMany({
+      where: { role: 'ADMIN', active: true },
+      select: { id: true },
+    });
+    for (const y of yoneticiler) {
+      await notifyUser({
+        userId: y.id,
+        kind: 'SYSTEM',
+        title: `Kapora itirazı — ${reservation.code}`,
+        body: `${reservation.business.name} · ${mesaj}`,
+        href: `/yonetim/randevular?ara=${reservation.code}`,
+      });
+    }
+
+    // Müşteri talebinin ulaştığını görmeli; sessiz bir form en kötüsü.
+    await notifyUser({
+      userId: user.id,
+      kind: 'SYSTEM',
+      title: 'İtirazınız alındı',
+      body: `${reservation.code} kodlu randevunuzun kaporası inceleniyor. Sonucu size bildireceğiz.`,
+      href: `/randevularim/${reservation.id}`,
+    });
+    return undefined;
+  }, { action: 'raiseDepositDisputeAction' });
+
+  if (result.ok) revalidatePath('/randevularim');
   return result;
 }

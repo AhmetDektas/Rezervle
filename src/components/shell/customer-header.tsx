@@ -35,8 +35,14 @@ export function CustomerHeader({
   // Ana sayfada arama kutusu kahramanın içinde duruyor ve sayfanın asıl
   // çağrısı o. Başlıktaki kutu onunla birlikte görününce ekranda 30 px arayla
   // iki özdeş arama alanı oluyordu (mobilde üst üste); hangisinin ne yaptığı
-  // belirsizdi. Diğer sayfalarda başlıktaki kutu tek ve kalıcı arama yeri.
-  const searchVisible = showSearch && pathname !== '/';
+  // belirsizdi.
+  //
+  // İşletme sayfasında da gizli: orada kullanıcı aramayı bitirmiş, bir yer
+  // seçmiş durumda. Kapağın hemen üstünde duran arama kutusu, sayfanın kendi
+  // içeriğiyle (isim, puan, harita) yarışıyor ve mobilde başlığı şişiriyordu.
+  // Arama gerekirse "Keşfet" bir tık uzakta.
+  const searchVisible =
+    showSearch && pathname !== '/' && !pathname.startsWith('/isletme/');
 
   React.useEffect(() => setMenuOpen(false), [pathname]);
   React.useEffect(() => {

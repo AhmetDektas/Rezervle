@@ -19,7 +19,7 @@
     "db:studio": "prisma studio",
     "setup": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts",
     "e2e:only": "playwright test",
-    "worker": "tsx src/worker/run.ts"
+    "worker": "node --conditions=react-server --import tsx src/worker/run.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

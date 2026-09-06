@@ -1,15 +1,19 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
+
 import { prisma } from '@/lib/db';
 import { loginSchema, registerSchema, businessRegisterSchema, fieldErrors } from '@/lib/validation';
 import { verifyPassword } from '@/server/auth';
 import { setSessionCookie, clearSessionCookie } from '@/server/session';
+import { requireUserAction } from '@/server/auth';
 import { DomainError, run, type ActionResult } from '@/server/errors';
 import type { Role } from '@/lib/constants';
 import { notifyUser } from '@/server/notifications';
 import { activePlatformPromotion, welcomeBody } from '@/server/promotions';
 import { submitBusinessApplication } from '@/server/business-application';
 import { createAccount } from '@/server/accounts';
+import { PLANS } from '@/lib/plans';
 import {
   RATE_LIMITS,
   clientIdentifier,
@@ -162,4 +166,49 @@ export async function registerBusinessAction(formData: FormData): Promise<AuthRe
     await setSessionCookie({ uid: result.userId, role: 'OWNER', name: parsed.data.ownerName });
     return { role: 'OWNER' as Role };
   }, { action: 'registerBusinessAction' });
+}
+
+/**
+ * Paket seçimi.
+ *
+ * Kaydın ikinci adımı: işletme ödeyeceği paketi belirliyor. Ücret kayıtta
+ * donduruluyor (`planPrice`) — liste fiyatı sonradan değişse bile mevcut
+ * abonenin ödemesi değişmiyor.
+ *
+ * Şu an para tahsil EDİLMİYOR: deneme süresi başvuruyla başlıyor ve gerçek
+ * ödeme sağlayıcısı bağlanana kadar tahsilat yok. Sağlayıcı geldiğinde bu
+ * eylem ödeme başlatacak yer.
+ */
+export async function choosePlanAction(planKey: string): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const user = await requireUserAction();
+    ctx.userId = user.id;
+
+    const plan = PLANS.find((p) => p.key === planKey);
+    if (!plan) throw new DomainError('Geçersiz paket.', 'PLAN_INVALID');
+
+    // Yalnızca kendi işletmesi: paket başkasının hesabına yazılamaz.
+    const business = await prisma.business.findFirst({
+      where: { ownerId: user.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, trialEndsAt: true },
+    });
+    if (!business) throw new DomainError('İşletme bulunamadı.', 'NOT_FOUND');
+    ctx.meta = { businessId: business.id, plan: plan.key };
+
+    await prisma.business.update({
+      where: { id: business.id },
+      data: {
+        planKey: plan.key,
+        planPrice: plan.price,
+        // Kapora eklentisi pakete dahilse açılıyor; değilse yönetici elle
+        // açabilir (satış sonrası yükseltme).
+        ...(plan.deposit ? { depositAddon: true } : {}),
+      },
+    });
+    return undefined;
+  }, { action: 'choosePlanAction' });
+
+  if (result.ok) revalidatePath('/panel');
+  return result;
 }
