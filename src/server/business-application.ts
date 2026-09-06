@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { createAccount } from './accounts';
 import { DomainError } from './errors';
 import { slugCandidates } from '@/lib/slug';
+import { TRIAL_DAYS } from '@/lib/plans';
 
 /**
  * İşletme başvurusu.
@@ -77,6 +78,7 @@ async function firstFreeSlug(
 
 export async function submitBusinessApplication(
   input: BusinessApplication,
+  now: Date = new Date(),
 ): Promise<ApplicationResult> {
   const category = await prisma.businessCategory.findUnique({
     where: { slug: input.categorySlug },
@@ -110,6 +112,13 @@ export async function submitBusinessApplication(
         email: input.email,
         // status varsayilani PENDING: onaya kadar musteri tarafinda gorunmez
         // ve rezervasyon alamaz (reservations.ts APPROVED kontrolu yapiyor).
+        //
+        // Deneme SAAT SIFIRDAN baslıyor, paket seçiminden değil: başvuruyu
+        // yapıp paket sayfasında vazgeçen işletme de denemede sayılır ve
+        // panele girebilir. Aksi halde "paket seçmedi" diye kilitlenmiş,
+        // ne olduğunu anlamayan bir hesap kalırdı.
+        planStatus: 'TRIAL',
+        trialEndsAt: new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000),
         branches: {
           create: {
             name: input.businessName,

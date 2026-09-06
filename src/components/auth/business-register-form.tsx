@@ -45,7 +45,9 @@ export function BusinessRegisterForm({
       const result = await registerBusinessAction(new FormData(event.currentTarget));
       if (result.ok) {
         toast.success('Başvurunuz alındı');
-        router.replace('/panel');
+        // Paket seçimi kaydın devamı: işletme ödeyeceği paketi burada
+        // belirliyor. Vazgeçerse denemesi yine başlamış oluyor.
+        router.replace('/kayit/isletme/paket');
         router.refresh();
         return;
       }
@@ -74,7 +76,7 @@ export function BusinessRegisterForm({
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="mt-5 space-y-6" noValidate>
+      <form method="post" onSubmit={onSubmit} className="mt-5 space-y-6" noValidate>
         <fieldset className="space-y-4">
           <legend className="text-[12.5px] font-semibold uppercase tracking-wide text-ink-3">
             İşletme

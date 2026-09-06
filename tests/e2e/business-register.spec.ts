@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { PASSWORD } from './helpers';
+import { test, expect } from './fixtures';
+import { PASSWORD, resetRateLimits } from './helpers';
 
 // Rezzerv'in arz tarafına açılan tek kapı. Bozulursa yeni işletme hiç
 // kaydolamaz ve bunu kimse fark etmez: mevcut işletmeler tohumdan geldiği
@@ -10,6 +10,11 @@ function benzersiz(): { email: string; ad: string } {
   const damga = Date.now().toString(36);
   return { email: `basvuru-${damga}@ornek.com`, ad: `Test Kuaför ${damga}` };
 }
+
+// Hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).
+test.beforeEach(async () => {
+  await resetRateLimits();
+});
 
 test.describe('işletme başvurusu', () => {
   test('boş form Türkçe hata mesajları gösterir', async ({ page }) => {
@@ -40,7 +45,13 @@ test.describe('işletme başvurusu', () => {
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: 'Başvuruyu gönder' }).click();
 
-    // Başvuru aynı zamanda kayıt: oturum açılır ve sahip panele düşer.
+    // Kaydın ikinci adımı paket seçimi: abonelik platformun ana geliri,
+    // bu yüzden kayıt akışının parçası.
+    await page.waitForURL(/\/kayit\/isletme\/paket/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: /paketi seçin/i })).toBeVisible();
+
+    // Paket seçmek zorunlu değil: deneme başvuruyla başladı.
+    await page.getByRole('button', { name: /Şimdilik geç/ }).click();
     await page.waitForURL(/\/panel\//, { timeout: 20_000 });
     await expect(page.getByText('Başvurunuz inceleniyor.')).toBeVisible();
 
@@ -75,7 +86,7 @@ test.describe('işletme başvurusu', () => {
     }
 
     await basvur(ad);
-    await page.waitForURL(/\/panel\//, { timeout: 20_000 });
+    await page.waitForURL(/\/kayit\/isletme\/paket/, { timeout: 20_000 });
 
     await page.goto('/cikis');
     await page.waitForURL('**/');
@@ -83,5 +94,30 @@ test.describe('işletme başvurusu', () => {
     await basvur(`${ad} 2`);
     await expect(page.getByText('Bu e-posta ile kayıtlı bir hesap zaten var.')).toBeVisible();
     await expect(page).toHaveURL(/\/kayit\/isletme/);
+  });
+});
+
+test.describe('abonelik', () => {
+  test('paket seçimi kaydedilir ve panele geçilir', async ({ page }) => {
+    const { email, ad } = benzersiz();
+
+    await page.goto('/kayit/isletme');
+    await page.getByLabel('İşletme adı').fill(ad);
+    await page.getByLabel('Kategori').selectOption('guzellik-salonu');
+    await page.getByLabel('Semt').selectOption('Mamak');
+    await page.getByLabel('Açık adres').fill('Şahintepe Mah. 12. Sok. No:3');
+    await page.getByLabel('Ad soyad').fill('Test Yetkili');
+    await page.getByLabel('E-posta').fill(email);
+    await page.getByLabel('Telefon').fill('0532 444 55 66');
+    await page.getByLabel('Parola').fill(PASSWORD);
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: 'Başvuruyu gönder' }).click();
+
+    await page.waitForURL(/\/kayit\/isletme\/paket/, { timeout: 20_000 });
+    // Deneme süresi ekranda açıkça yazmalı: ödeme korkusu en büyük terk sebebi.
+    await expect(page.getByText(/gün ücretsiz deneme/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Bu paketi seç' }).first().click();
+    await page.waitForURL(/\/panel\//, { timeout: 25_000 });
   });
 });

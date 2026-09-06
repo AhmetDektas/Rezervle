@@ -132,6 +132,15 @@ export const workingHoursSchema = z.object({
     .length(7),
 });
 
+
+/** Boş formu "değer yok" sayar; sıfıra çevirmez. */
+function bosluguYokSay<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : Number(v)),
+    schema.optional(),
+  );
+}
+
 export const branchSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(2, 'Şube adı gerekli.').max(80),
@@ -139,6 +148,15 @@ export const branchSchema = z.object({
   district: z.string().trim().min(2, 'İlçe gerekli.').max(40),
   address: z.string().trim().min(5, 'Adres gerekli.').max(200),
   phone: phoneSchema.optional().or(z.literal('')),
+  // Harita koordinatı isteğe bağlı: doluysa iğne tam yerinde, boşsa adres
+  // metniyle aranıyor.
+  //
+  // preprocess ŞART: boş dize doğrudan z.coerce.number()'a girerse 0'a
+  // dönüşür ve 0,0 Atlas Okyanusu'nda geçerli bir koordinattır. Koordinat
+  // girmeyen her şube haritada Afrika açıklarını gösterirdi — sessiz ve
+  // tamamen yanlış. Aralık kontrolü de enlem/boylamı ters yazmayı yakalıyor.
+  lat: bosluguYokSay(z.number().min(-90).max(90)),
+  lng: bosluguYokSay(z.number().min(-180).max(180)),
   active: z.coerce.boolean().default(true),
 });
 
@@ -225,3 +243,19 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * Restoran menü kalemi.
+ *
+ * Bölüm adı serbest metin: sabit bir liste her mutfağa uymazdı (kahvaltıcının
+ * bölümleriyle balıkçınınki aynı değil).
+ */
+export const menuItemSchema = z.object({
+  id: z.string().optional(),
+  businessId: z.string().min(1),
+  category: z.string().trim().min(2, 'Bölüm adı girin.').max(40),
+  name: z.string().trim().min(2, 'Ürün adı girin.').max(80),
+  description: z.string().trim().max(200, 'Açıklama en fazla 200 karakter olabilir.').optional(),
+  price: z.coerce.number().int().min(0, 'Fiyat negatif olamaz.').max(100_000),
+  sortOrder: z.coerce.number().int().min(0).max(999).default(0),
+});
