@@ -16,6 +16,8 @@ import { nextAvailableSlots } from '@/server/discovery';
 import { BusinessCover } from '@/components/business/cover';
 import { FavoriteButton } from '@/components/business/favorite-button';
 import { BusinessGallery } from '@/components/business/gallery';
+import { LocationMap } from '@/components/business/location-map';
+import { MenuList } from '@/components/business/menu-list';
 import { Rating, ReviewStars } from '@/components/ui/rating';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,6 +49,12 @@ async function loadBusiness(slug: string) {
         include: { services: { select: { serviceId: true } } },
       },
       images: { orderBy: { sortOrder: 'asc' } },
+      // Menü yalnızca restoranda gösteriliyor ama sorgu sektöre bakmıyor:
+      // boş liste zaten hiçbir şey çizmiyor ve koşullu include okunaksız olurdu.
+      menuItems: {
+        where: { active: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      },
       reviews: {
         where: { status: 'PUBLISHED' },
         orderBy: { createdAt: 'desc' },
@@ -96,14 +104,29 @@ export default async function BusinessPage({ params }: { params: Params }) {
 
   return (
     <div className="pb-24 lg:pb-10">
-      <BusinessCover
-        hue={business.brandHue}
-        sector={business.category.sector}
-        src={business.coverUrl}
-        name={business.name}
-        rounded=""
-        className="h-40 sm:h-56"
-      />
+      {/* Sayfanın kahramanı harita: müşterinin işletme sayfasında ilk sorduğu
+          şey "nerede". Dekoratif bir kapak görseli o soruyu cevaplamıyordu.
+          Şube yoksa kapağa düşülüyor — boş bir şerit bırakmak yerine. */}
+      {primary ? (
+        <LocationMap
+          variant="hero"
+          name={business.name}
+          address={primary.address}
+          district={primary.district}
+          city={primary.city}
+          lat={primary.lat}
+          lng={primary.lng}
+        />
+      ) : (
+        <BusinessCover
+          hue={business.brandHue}
+          sector={business.category.sector}
+          src={business.coverUrl}
+          name={business.name}
+          rounded=""
+          className="h-40 sm:h-56"
+        />
+      )}
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Kapağın mutlak konumlu katmanları, kartın üstüne taşmasın diye kart da
@@ -245,6 +268,19 @@ export default async function BusinessPage({ params }: { params: Params }) {
                 ))}
               </ul>
             </section>
+
+            {/* Menü restoran dışındaki sektörlerde anlamsız: kuaförün ya da
+                halı sahanın "menüsü" olmaz. */}
+            {business.category.sector === 'RESTAURANT' && business.menuItems.length > 0 ? (
+              <section aria-labelledby="menu">
+                <h2 id="menu" className="section-title">
+                  Menü
+                </h2>
+                <div className="card mt-3 p-4 sm:p-5">
+                  <MenuList items={business.menuItems} />
+                </div>
+              </section>
+            ) : null}
 
             <section aria-labelledby="hakkinda">
               <h2 id="hakkinda" className="section-title">

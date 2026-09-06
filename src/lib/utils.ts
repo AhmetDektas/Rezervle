@@ -10,6 +10,10 @@ export function slugify(input: string): string {
   const map: Record<string, string> = {
     ı: 'i', İ: 'i', ş: 's', Ş: 's', ğ: 'g', Ğ: 'g',
     ü: 'u', Ü: 'u', ö: 'o', Ö: 'o', ç: 'c', Ç: 'c',
+    // Düzeltme işaretli harfler Türkçede yaygın: "Dükkân", "Kâğıt", "Hâlâ".
+    // Haritada olmayan harf ayraca dönüştüğü için "Kasap Dükkânı" adresi
+    // "kasap-dukk-ni" oluyordu — kırık görünen ve okunmayan bir URL.
+    â: 'a', Â: 'a', î: 'i', Î: 'i', û: 'u', Û: 'u',
   };
   return input
     .split('')

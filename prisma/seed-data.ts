@@ -31,7 +31,94 @@ export type SeedBusiness = {
   status?: 'PENDING';
   /** Kapora paketi: platform açtı mı, işletme kullanıyor mu? */
   deposit?: { addon: boolean; enabled: boolean; kind: 'PERCENT' | 'AMOUNT'; value: number; minPrice: number; refundHours: number };
+  /**
+   * Kapak ve galeri görselleri.
+   *
+   * Dış kaynaktan geliyor ve yüklenmezse arayüz gradient kapağa düşüyor
+   * (bkz. BusinessCover) — bu yüzden görsel eklemek bir bağımlılık değil,
+   * iyileştirme. Kaynak sabit boyutlu ve kırpılmış istekle çağrılıyor ki
+   * liste ekranında megabaytlarca fotoğraf inmesin.
+   */
+  cover?: string;
+  photos?: string[];
+  /**
+   * Hafif kayıt: geçmiş randevu penceresi kısa tutulur.
+   *
+   * 120 işletme için tam pencere (60 gün) ~45 bin randevu demekti; tohum
+   * dakikalarca sürer ve geliştirme veritabanı gereksiz şişerdi. Vitrin için
+   * önemli olan işletmenin dolu görünmesi, arşivinin derinliği değil.
+   */
+  light?: boolean;
 };
+
+/** Unsplash görselini sabit boyutta ve kırpılmış olarak ister. */
+function foto(id: string, w = 1200): string {
+  return `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=70`;
+}
+
+/**
+ * Sektöre göre görsel havuzu.
+ *
+ * İşletmeye özel fotoğraf çekmek mümkün olmadığı için sektöre uygun stok
+ * görseller kullanılıyor. Her işletme havuzdan kendi sırasına göre farklı bir
+ * set alıyor: aynı fotoğrafın on kartta tekrarlanması, stok görsel kullanmanın
+ * en çok belli eden hâli.
+ */
+export const SECTOR_PHOTOS: Record<string, string[]> = {
+  DENTAL: [
+    '1629909613654-28e377c37b09',
+    '1588776814546-1ffcf47267a5',
+    '1606811841689-23dfddce3e95',
+    '1609840114035-3c981b782dfe',
+    '1598256989800-fe5f95da9787',
+  ],
+  BEAUTY: [
+    '1560066984-138dadb4c035',
+    '1522337360788-8b13dee7a37e',
+    '1580618672591-eb180b1a973f',
+    '1562322140-8baeececf3df',
+    '1487412947147-5cebf100ffc2',
+  ],
+  AESTHETIC: [
+    '1570172619644-dfd03ed5d881',
+    '1512290923902-8a9f81dc236c',
+    '1519824145371-296894a0daa9',
+    '1616394584738-fc6e612e71b9',
+    '1515377905703-c4788e51af15',
+  ],
+  VET: [
+    '1516734212186-a967f81ad0d7',
+    '1583337130417-3346a1be7dee',
+    '1548767797-d8c844163c4c',
+    '1601758228041-f3b2795255f1',
+    '1587300003388-59208cc962cb',
+  ],
+  PITCH: [
+    '1459865264687-595d652de67e',
+    '1551958219-acbc608c6377',
+    '1522778119026-d647f0596c20',
+    '1431324155629-1a6deb1dec8d',
+    '1574629810360-7efbbe195018',
+  ],
+  RESTAURANT: [
+    '1517248135467-4c7edcad34c4',
+    '1414235077428-338989a2e8c0',
+    '1552566626-52f8b828add9',
+    '1466978913421-dad2ebd01d17',
+    '1555396273-367ea4eb4db5',
+  ],
+};
+
+/** İşletmenin sırasına göre havuzdan kapak + galeri seçer. */
+export function gorselSeti(sector: string, sira: number): { cover: string; photos: string[] } {
+  const havuz = SECTOR_PHOTOS[sector] ?? SECTOR_PHOTOS['RESTAURANT']!;
+  const bas = sira % havuz.length;
+  const sirali = [...havuz.slice(bas), ...havuz.slice(0, bas)];
+  return {
+    cover: foto(sirali[0]!, 1400),
+    photos: sirali.slice(1, 4).map((id) => foto(id, 900)),
+  };
+}
 
 export const CATEGORIES = [
   {
@@ -528,3 +615,71 @@ BUSINESSES.push(
     ],
   },
 );
+
+/**
+ * Örnek restoran menüsü.
+ *
+ * Tohum verisi menüsüz kalsaydı, menü özelliği demo'da hiç görünmezdi ve
+ * "yazdım ama kimse görmedi" durumu oluşurdu.
+ */
+export type SeedMenuItem = {
+  category: string;
+  name: string;
+  description?: string;
+  price: number;
+};
+
+export const RESTAURANT_MENU: SeedMenuItem[] = [
+  { category: 'Başlangıçlar', name: 'Mercimek çorbası', description: 'Tereyağı ve limon ile', price: 95 },
+  { category: 'Başlangıçlar', name: 'Humus', description: 'Nohut ezmesi, susam tahini, zeytinyağı', price: 120 },
+  { category: 'Başlangıçlar', name: 'Sigara böreği', description: '6 adet, beyaz peynirli', price: 135 },
+  { category: 'Ana yemekler', name: 'Adana kebap', description: 'Közlenmiş biber ve domates ile', price: 420 },
+  { category: 'Ana yemekler', name: 'Izgara köfte', description: 'Pilav ve mevsim salata ile', price: 380 },
+  { category: 'Ana yemekler', name: 'Tavuk şiş', description: 'Marine edilmiş, közde', price: 350 },
+  { category: 'Ana yemekler', name: 'Karışık ızgara', description: '2 kişilik', price: 780 },
+  { category: 'Tatlılar', name: 'Künefe', description: 'Antep fıstıklı, tereyağlı', price: 180 },
+  { category: 'Tatlılar', name: 'Sütlaç', description: 'Fırında, tarçınlı', price: 130 },
+  { category: 'İçecekler', name: 'Ayran', price: 45 },
+  { category: 'İçecekler', name: 'Şalgam', price: 50 },
+  { category: 'İçecekler', name: 'Türk kahvesi', price: 85 },
+];
+
+/**
+ * Ankara ilçe merkezlerinin yaklaşık koordinatları.
+ *
+ * Harita iğnesi ancak koordinat varsa görünüyor: adres metniyle arama, kurgusal
+ * bir adresi çözemediğinde bölgeyi gösterip iğneyi koymuyor — kullanıcı "burası
+ * neresi" diye bakakalıyor.
+ *
+ * Bunlar İLÇE MERKEZİ konumları, tohum işletmelerinin gerçek adresi değil.
+ * Kurgusal adreslere kesin koordinat uydurmak, yanlış bir noktayı doğruymuş
+ * gibi göstermek olurdu. Gerçek işletme kendi koordinatını panelden giriyor.
+ */
+export const ILCE_KOORDINAT: Record<string, { lat: number; lng: number }> = {
+  Çankaya: { lat: 39.908, lng: 32.854 },
+  Keçiören: { lat: 39.98, lng: 32.869 },
+  Yenimahalle: { lat: 39.97, lng: 32.76 },
+  Mamak: { lat: 39.93, lng: 32.92 },
+  Etimesgut: { lat: 39.95, lng: 32.67 },
+  Sincan: { lat: 39.97, lng: 32.58 },
+  Altındağ: { lat: 39.945, lng: 32.86 },
+  Gölbaşı: { lat: 39.79, lng: 32.8 },
+  Pursaklar: { lat: 40.04, lng: 32.9 },
+};
+
+/**
+ * Şubeye konum verir: ilçe merkezinden küçük, deterministik bir sapma.
+ *
+ * Sapma olmasa aynı ilçedeki yirmi işletme tek noktada üst üste binerdi.
+ * ~0,01 derece kabaca 1 km; ilçe içinde makul bir dağılım veriyor.
+ */
+export function subeKoordinat(ilce: string, tohum: number): { lat: number; lng: number } | null {
+  const merkez = ILCE_KOORDINAT[ilce];
+  if (!merkez) return null;
+  const a = ((tohum * 47) % 21) - 10; // -10..10
+  const b = ((tohum * 83) % 21) - 10;
+  return {
+    lat: Number((merkez.lat + a * 0.0012).toFixed(6)),
+    lng: Number((merkez.lng + b * 0.0016).toFixed(6)),
+  };
+}

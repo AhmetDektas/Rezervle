@@ -82,6 +82,7 @@ export default async function BranchesPage({ params }: { params: Params }) {
                     branch={{
                       id: b.id, name: b.name, city: b.city, district: b.district,
                       address: b.address, phone: b.phone, active: b.active,
+                      lat: b.lat, lng: b.lng,
                     }}
                   />
                 </div>

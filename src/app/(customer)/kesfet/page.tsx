@@ -25,7 +25,10 @@ function one(value: string | string[] | undefined): string | undefined {
 
 async function Results({ params }: { params: Record<string, string | undefined> }) {
   const sort = params['sirala'];
-  const { items } = await searchBusinesses({
+  // Sayfa numarası 1'den başlıyor; bozuk değer ilk sayfaya düşüyor.
+  const sayfa = Math.max(1, Number(params['sayfa']) || 1);
+  const ADET = 24;
+  const { items, dahaVar } = await searchBusinesses({
     q: params['q'],
     category: params['kategori'],
     district: params['ilce'],
@@ -33,7 +36,7 @@ async function Results({ params }: { params: Record<string, string | undefined> 
     maxPriceLevel: params['fiyat'] ? Number(params['fiyat']) : undefined,
     availableToday: params['bugun'] === '1',
     sort: sort === 'puan' || sort === 'fiyat' || sort === 'yeni' ? sort : 'onerilen',
-  });
+  }, ADET, (sayfa - 1) * ADET);
 
   if (items.length === 0) {
     return (
@@ -50,16 +53,52 @@ async function Results({ params }: { params: Record<string, string | undefined> 
     );
   }
 
+  const baglanti = (hedef: number) => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined) as [string, string][],
+    );
+    if (hedef <= 1) qs.delete('sayfa');
+    else qs.set('sayfa', String(hedef));
+    const q = qs.toString();
+    return q ? `/kesfet?${q}` : '/kesfet';
+  };
+
   return (
     <>
       <p className="mb-3 text-[13px] text-ink-3" role="status">
         <span className="tnum font-medium text-navy">{items.length}</span> işletme listeleniyor
+        {sayfa > 1 ? <span className="ml-1">· {sayfa}. sayfa</span> : null}
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((b) => (
           <BusinessCard key={b.id} business={b} />
         ))}
       </div>
+
+      {/* Sayfalama bağlantı (link) olarak: JavaScript olmadan da çalışıyor ve
+          her sayfanın kendi adresi var — paylaşılabilir ve geri tuşu doğru. */}
+      {sayfa > 1 || dahaVar ? (
+        <nav className="mt-6 flex items-center justify-between gap-3" aria-label="Sayfalama">
+          {sayfa > 1 ? (
+            <Button asChild variant="secondary">
+              <Link href={baglanti(sayfa - 1)} rel="prev">
+                Önceki
+              </Link>
+            </Button>
+          ) : (
+            <span />
+          )}
+          {dahaVar ? (
+            <Button asChild variant="secondary">
+              <Link href={baglanti(sayfa + 1)} rel="next">
+                Daha fazla göster
+              </Link>
+            </Button>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
     </>
   );
 }

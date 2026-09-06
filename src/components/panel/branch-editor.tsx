@@ -17,6 +17,8 @@ export type BranchRow = {
   district: string;
   address: string;
   phone: string | null;
+  lat: number | null;
+  lng: number | null;
   active: boolean;
 };
 
@@ -49,6 +51,8 @@ export function BranchEditor({
       district: form.get('district'),
       address: form.get('address'),
       phone: form.get('phone') ?? '',
+      lat: form.get('lat') ?? '',
+      lng: form.get('lng') ?? '',
       active: form.get('active') === 'on',
     });
     setPending(false);
@@ -80,7 +84,7 @@ export function BranchEditor({
           title={branch ? 'Şubeyi düzenle' : 'Yeni şube'}
           description="Yeni şube varsayılan çalışma saatleriyle açılır."
         >
-          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <form method="post" onSubmit={onSubmit} className="space-y-4" noValidate>
             <Field label="Şube adı" htmlFor="b-name" error={fields['name']} required>
               <Input id="b-name" name="name" defaultValue={branch?.name ?? ''} required placeholder="Çankaya Merkez" />
             </Field>
@@ -105,6 +109,30 @@ export function BranchEditor({
             <Field label="Telefon" htmlFor="b-phone" error={fields['phone']}>
               <Input id="b-phone" name="phone" defaultValue={branch?.phone ?? ''} placeholder="0312 123 45 67" />
             </Field>
+
+            {/* Koordinat isteğe bağlı ama iğnenin tam yerinde olmasını
+                sağlayan tek şey. Boşsa harita adres metniyle arama yapıyor;
+                aynı sokakta birden çok işletme varsa yanlış yeri gösterebilir. */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Enlem" htmlFor="b-lat" error={fields['lat']} hint="İsteğe bağlı">
+                <Input
+                  id="b-lat"
+                  name="lat"
+                  inputMode="decimal"
+                  defaultValue={branch?.lat ?? ''}
+                  placeholder="39.9036"
+                />
+              </Field>
+              <Field label="Boylam" htmlFor="b-lng" error={fields['lng']} hint="Google Maps’te sağ tık → koordinat">
+                <Input
+                  id="b-lng"
+                  name="lng"
+                  inputMode="decimal"
+                  defaultValue={branch?.lng ?? ''}
+                  placeholder="32.8622"
+                />
+              </Field>
+            </div>
 
             <label className="flex min-h-[44px] cursor-pointer items-center gap-2.5 rounded-xl border border-line px-3.5">
               <input

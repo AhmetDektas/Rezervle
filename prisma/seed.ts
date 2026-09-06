@@ -8,9 +8,18 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
-import { BUSINESSES, CATEGORIES, CUSTOMER_NAMES, REVIEW_TEXTS } from './seed-data';
+import { BUSINESSES, CATEGORIES, CUSTOMER_NAMES, REVIEW_TEXTS, gorselSeti } from './seed-data';
+// İkinci dalga işletmeler ve restorana özel menüler. Import'un yan etkisi
+// BUSINESSES dizisini büyütmek; bu yüzden BUSINESSES okunmadan ÖNCE gelmeli.
+import { MENULER } from './seed-data-wave2';
+// Katalog: her sektörü 20 işletmeye tamamlıyor. Yan etkisi BUSINESSES'ı
+// büyütmek, bu yüzden dizi okunmadan ÖNCE import edilmeli.
+import './seed-catalog';
+import { MUTFAK_MENULERI, RESTORAN_MUTFAK } from './seed-menus';
 import { depositFor, type DepositPolicy } from '../src/lib/deposit';
 import { CONSENT_KINDS, CONSENT_VERSION } from '../src/lib/constants';
+import { subeKoordinat } from './seed-data';
+import { PLANS } from '../src/lib/plans';
 
 const prisma = new PrismaClient();
 
@@ -125,6 +134,78 @@ function staffIsPerson(sector: string): boolean {
   return sector !== 'PITCH' && sector !== 'RESTAURANT';
 }
 
+/**
+ * Tohum aboneliği.
+ *
+ * Dağılım kasıtlı: çoğunluk denemede (yeni platform), bir kısmı ödeyen,
+ * birkaçı gecikmiş. Hepsi ACTIVE olsaydı deneme sayacı ve gecikme uyarısı
+ * hiçbir ekranda görünmezdi.
+ *
+ * **Yalnızca abonelik alanlarını döndürür.** Bir önceki hâli `depositAddon`'u
+ * da yazıyordu ve `b.deposit` ayarlarının ÜSTÜNE biniyordu: kapora paketi açık
+ * olması gereken işletmeler (Estetika, Balıkçı) paketleri kapora içermediği
+ * için sessizce eklentisiz kalıyor, kapora testleri düşüyordu. Paketin
+ * eklentiyi açması gerçek kayıt akışının işi (`choosePlanAction`); tohumun
+ * kendi kapora kurgusunu ezmesi için bir sebep yok.
+ */
+function abonelik(sira: number, today: string) {
+  const plan = PLANS[sira % PLANS.length]!;
+  const kalip = sira % 5;
+  if (kalip === 0) {
+    return {
+      planKey: plan.key, planPrice: plan.price, planStatus: 'ACTIVE',
+      trialEndsAt: toUtc(addDays(today, -60), 0),
+      currentPeriodEnd: toUtc(addDays(today, 20), 0),
+    };
+  }
+  if (kalip === 1) {
+    return {
+      planKey: plan.key, planPrice: plan.price, planStatus: 'PAST_DUE',
+      trialEndsAt: toUtc(addDays(today, -95), 0),
+      currentPeriodEnd: toUtc(addDays(today, -6), 0),
+    };
+  }
+  // Denemede: bitişe kalan gün sayısı değişiyor ki uyarı eşikleri görünsün.
+  const kalan = [3, 11, 45][kalip - 2] ?? 30;
+  return {
+    planKey: plan.key,
+    planPrice: kalip === 2 ? 0 : plan.price, // biri paket seçmemiş
+    planStatus: 'TRIAL',
+    trialEndsAt: toUtc(addDays(today, kalan), 0),
+  };
+}
+
+/**
+ * Kampanya kodu: okunabilir ve tekil.
+ *
+ * Slug'ın ilk dört harfi 120 işletmede tekrar ediyor (P2002). İlk çözümüm
+ * koda dizi sırasını eklemekti ama bu kodu BUSINESSES dizisindeki konuma
+ * bağladı: diziye bir işletme eklendiğinde sonrakilerin kodu değişti ve
+ * `ESTE15`'i sabit yazan regresyon testi düştü.
+ *
+ * Bunun yerine kullanılmış kodlar izleniyor: ilk gelen `ESTE15` alıyor,
+ * sonrakiler `ESTE15B`, `ESTE15C` diye ilerliyor. Kod artık işletmenin kendi
+ * adına bağlı ve listeye başkası eklenince değişmiyor.
+ */
+const kullanilanKodlar = new Set<string>();
+
+function kampanyaKodu(slug: string): string {
+  const taban = `${slug.slice(0, 4).toUpperCase()}15`;
+  if (!kullanilanKodlar.has(taban)) {
+    kullanilanKodlar.add(taban);
+    return taban;
+  }
+  for (let i = 1; i < 26; i++) {
+    const aday = `${taban}${String.fromCharCode(65 + i)}`; // B, C, D...
+    if (!kullanilanKodlar.has(aday)) {
+      kullanilanKodlar.add(aday);
+      return aday;
+    }
+  }
+  // 26 aynı önekli işletme gerçekçi değil ama sessizce çakışmaktansa patlasın.
+  throw new Error(`Kampanya kodu üretilemedi: ${slug}`);
+}
+
 async function main(): Promise<void> {
   console.log('Tohum verisi hazırlanıyor…');
   await reset();
@@ -195,6 +276,9 @@ async function main(): Promise<void> {
     });
 
     const status = b.status ?? 'APPROVED';
+    // Sıraya göre havuzdan farklı set: aynı fotoğrafın on kartta
+    // tekrarlanması stok görsel kullandığımızı en çok belli eden şey.
+    const gorsel = gorselSeti(b.sector, BUSINESSES.indexOf(b));
     const business = await prisma.business.create({
       data: {
         slug: b.slug, name: b.name, categoryId: categories.get(b.sector)!, ownerId: owner.id,
@@ -216,13 +300,48 @@ async function main(): Promise<void> {
               taxNumber: String(1000000000 + b.hue * 7919),
             }
           : {}),
+        // Abonelik: tohum işletmeleri gerçekçi bir karışım taşıyor —
+        // ödeyenler, denemede olanlar, ödemesi gecikenler. Hepsi aynı durumda
+        // olsaydı deneme sayacı ve gecikme uyarısı hiçbir ekranda görünmezdi.
+        ...abonelik(BUSINESSES.indexOf(b), today),
         phone: b.branches[0]!.phone, email: b.owner.email,
         website: `https://www.${b.slug.replace(/-/g, '')}.com`,
+        coverUrl: gorsel.cover,
       },
+    });
+
+    // Galeri: kapak dışındaki görseller. Yüklenemezse arayüz gradient'e
+    // düşüyor, yani görsel bir bağımlılık değil iyileştirme.
+    await prisma.businessImage.createMany({
+      data: gorsel.photos.map((url, i) => ({
+        businessId: business.id,
+        url,
+        sortOrder: i,
+      })),
     });
     await prisma.businessStatusHistory.create({
       data: { businessId: business.id, fromStatus: 'PENDING', toStatus: status, actorId: status === 'APPROVED' ? admin.id : null, reason: status === 'APPROVED' ? 'Belgeler doğrulandı' : 'Başvuru alındı' },
     });
+
+    // Menü yalnızca restoranda anlamlı ve her restoranın kendi menüsü var:
+    // balıkçıda künefe, pizzacıda Adana kebap görmek "bu veri uydurma"
+    // demenin en hızlı yolu olurdu.
+    // Önce işletmeye özel menü; yoksa mutfak türünün menüsü. İki dönerci
+    // menüsünün birbirine benzemesi gerçekçi, menüsüz restoran değil.
+    const mutfak = RESTORAN_MUTFAK[b.slug];
+    const menu = MENULER[b.slug] ?? (mutfak ? MUTFAK_MENULERI[mutfak] : undefined);
+    if (b.sector === 'RESTAURANT' && menu) {
+      await prisma.menuItem.createMany({
+        data: menu.map((m, i) => ({
+          businessId: business.id,
+          category: m.category,
+          name: m.name,
+          description: m.description ?? null,
+          price: m.price,
+          sortOrder: i,
+        })),
+      });
+    }
 
     const branches: Awaited<ReturnType<typeof prisma.branch.create>>[] = [];
     for (const [i, br] of b.branches.entries()) {
@@ -230,6 +349,10 @@ async function main(): Promise<void> {
         data: {
           businessId: business.id, name: br.name, district: br.district, address: br.address,
           phone: br.phone, isPrimary: i === 0,
+          // Koordinat olmadan harita iğne göstermiyor; kullanıcı işletmenin
+          // tam olarak nerede olduğunu göremiyordu. İlçe merkezinden küçük bir
+          // sapma: gerçek adres değil, ilçe içinde makul bir konum.
+          ...(subeKoordinat(br.district, BUSINESSES.indexOf(b) * 3 + i) ?? {}),
           hours: {
             create: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
               weekday,
@@ -317,7 +440,7 @@ async function main(): Promise<void> {
     await prisma.promotion.create({
       data: {
         businessId: business.id,
-        code: `${b.slug.slice(0, 4).toUpperCase()}15`,
+        code: kampanyaKodu(b.slug),
         title: 'İlk randevuya %15 indirim',
         description: 'Rezzerv üzerinden ilk randevunuzda geçerlidir.',
         kind: 'PERCENT', value: 15, minAmount: 500,
@@ -328,7 +451,10 @@ async function main(): Promise<void> {
     });
 
     // --- randevular ------------------------------------------------------
-    for (let d = START; d <= END; d++) {
+    // Hafif kayıtlarda geçmiş penceresi kısa: 120 işletmenin tamamına 60
+    // günlük arşiv üretmek tohumu dakikalara çıkarıyordu.
+    const basla = b.light ? -14 : START;
+    for (let d = basla; d <= END; d++) {
       const date = addDays(today, d);
       const wd = weekdayOf(date);
       const bh = branchHours(wd, b.sector);

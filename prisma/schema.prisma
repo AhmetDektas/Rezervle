@@ -123,6 +123,19 @@ model Business {
   // Müşteri parayı tek seferde öder; lisanslı ödeme kuruluşu tutarı ikiye
   // böler ve işletme payını hak ediş oluşana kadar bloke tutar. Platform
   // müşteri parasını hiçbir zaman kendi hesabında tutmaz.
+  // --- Abonelik (ana gelir) ---
+  // Platformun asil geliri aylik abonelik; kapora komisyonu bunun UZERINE
+  // gelen eklenti. Ucret kayit aninda donduruluyor: liste fiyati sonradan
+  // degisse bile mevcut isletmenin odemesi degismiyor (commissionRate ile
+  // ayni mantik).
+  planKey          String    @default("baslangic")
+  // TRIAL: deneme suruyor · ACTIVE: odeyen · PAST_DUE: odeme gecikti
+  // CANCELLED: iptal etti. Deneme bitip odeme gelmezse PAST_DUE olur.
+  planStatus       String    @default("TRIAL")
+  planPrice        Int       @default(0) // aylik ucret (TL), kayitta dondurulur
+  trialEndsAt      DateTime?
+  currentPeriodEnd DateTime?
+
   commissionRate Int      @default(30) // kaporadan alınan platform komisyonu (%)
   subMerchantKey String? // ödeme kuruluşundaki alt üye işyeri anahtarı
   payoutTitle    String? // hak ediş hesabının ünvanı
@@ -142,6 +155,7 @@ model Business {
   customerNotes CustomerNote[]
   tags          CustomerTag[]
   statusHistory BusinessStatusHistory[]
+  menuItems     MenuItem[]
 
   @@index([status, featured])
   @@index([categoryId])
@@ -503,6 +517,33 @@ model Promotion {
  * Birincil anahtar saglayicinin olay kimligi: ayni olayi ikinci kez yazmak
  * unique kisitina carpar ve bu "zaten islendi" demektir.
  */
+/**
+ * Restoran menusu.
+ * Yalnizca restoran sektorunde gorunuyor ama tabloyu sektore baglamiyoruz:
+ * kafe, pastane ya da otel restorani da ayni yapiyi kullanabilir. Gorunurluk
+ * karari arayuzde, veri modelinde degil.
+ * Fiyat kurus degil TAM LIRA (Int), projedeki diger tutarlarla ayni birim.
+ * Menu fiyati bilgilendirme amacli: rezervasyon tutarina girmiyor, cunku
+ * musteri ne yiyecegini masada seciyor.
+ */
+model MenuItem {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  // Serbest metin: "Baslangiclar", "Ana yemekler", "Tatlilar"... Sabit liste
+  // her mutfaga uymazdi (kahvaltici ile balikcinin bolumleri ayni degil).
+  category    String
+  name        String
+  description String?
+  price       Int
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId, active])
+}
+
 model ProcessedEvent {
   id          String   @id
   type        String

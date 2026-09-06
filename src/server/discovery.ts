@@ -130,7 +130,14 @@ export type BusinessFilters = {
 export type BusinessCardData = Awaited<ReturnType<typeof searchBusinesses>>['items'][number];
 
 /** Keşfet ve kategori listelerinin tek veri kaynağı. */
-export async function searchBusinesses(filters: BusinessFilters, take = 24) {
+/**
+ * Vitrin araması.
+ *
+ * `skip` sayfalama için: katalog 120 işletmeye çıkınca sabit 24'lük kesit,
+ * geri kalan 96 işletmeyi hiçbir müşterinin ulaşamayacağı hâle getiriyordu.
+ * Kayıt vardı, fotoğrafı vardı, menüsü vardı ama keşfetten görünmüyordu.
+ */
+export async function searchBusinesses(filters: BusinessFilters, take = 24, skip = 0) {
   const q = filters.q?.trim();
   const rows = await prisma.business.findMany({
     where: {
@@ -194,11 +201,14 @@ export async function searchBusinesses(filters: BusinessFilters, take = 24) {
         : filters.sort === 'yeni'
           ? [{ createdAt: 'desc' }]
           : [{ featured: 'desc' }, { ratingAvg: 'desc' }],
-    take,
+    take: take + 1, // bir fazlası: "daha var mı" sorusunu ek sorgu olmadan cevaplar
+    skip,
   });
 
-  const availability = await nextAvailableSlots(rows.map((r) => r.id), filters.availableToday ? 1 : 3);
-  let items = rows.map((r) => ({ ...r, nextSlot: availability[r.id] ?? null }));
+  const dahaVar = rows.length > take;
+  const sayfa = dahaVar ? rows.slice(0, take) : rows;
+  const availability = await nextAvailableSlots(sayfa.map((r) => r.id), filters.availableToday ? 1 : 3);
+  let items = sayfa.map((r) => ({ ...r, nextSlot: availability[r.id] ?? null }));
 
   if (filters.availableToday) {
     const t = today();
@@ -207,5 +217,7 @@ export async function searchBusinesses(filters: BusinessFilters, take = 24) {
   if (filters.sort === 'fiyat') {
     items = [...items].sort((a, b) => (a.services[0]?.price ?? 0) - (b.services[0]?.price ?? 0));
   }
-  return { items, total: items.length };
+  // `dahaVar` filtrelemeden ÖNCEki sayıdan geliyor: "bugün müsait" filtresi
+  // bu sayfadaki her kaydı elese bile sonraki sayfada uygun kayıt olabilir.
+  return { items, total: items.length, dahaVar };
 }
