@@ -22,5 +22,9 @@
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "legacy", "tests/e2e"]
+  // tests/e2e BURADA DEĞİL, bilerek: eskiden dışlanıyordu ve E2E spec'leri
+  // hiç tip denetiminden geçmiyordu. Uygulamada bir alan yeniden
+  // adlandırıldığında spec ancak 17 dakikalık koşunun ortasında, çalışma
+  // anında patlıyordu. Şimdi `tsc --noEmit` saniyeler içinde söylüyor.
+  "exclude": ["node_modules", "legacy"]
 }
