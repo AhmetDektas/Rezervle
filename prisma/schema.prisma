@@ -135,6 +135,9 @@ model Business {
   planPrice        Int       @default(0) // aylik ucret (TL), kayitta dondurulur
   trialEndsAt      DateTime?
   currentPeriodEnd DateTime?
+  // Deneme bitmeden once gonderilen uyarinin damgasi. Dolu olmasi "uyarildi"
+  // demek; is her gun kosuyor ve bu alan olmadan ayni uyari her gun giderdi.
+  trialWarnedAt    DateTime?
 
   commissionRate Int      @default(30) // kaporadan alınan platform komisyonu (%)
   subMerchantKey String? // ödeme kuruluşundaki alt üye işyeri anahtarı
@@ -146,6 +149,7 @@ model Business {
 
   branches      Branch[]
   services      Service[]
+  invoices      SubscriptionInvoice[]
   staff         StaffMember[]
   reservations  Reservation[]
   images        BusinessImage[]
@@ -419,6 +423,53 @@ model Reservation {
 /// Alanlar randevu anindaki haliyle DONDURULUR: isletme sonradan hizmetin
 /// adini, suresini ya da fiyatini degistirse bile gecmis randevu degismez.
 /// Kapora ile ayni gerekce.
+/// Bir abonelik doneminin faturasi.
+///
+/// Abonelik once yalnizca `Business` uzerinde bir DURUM alaniydi: deneme
+/// baslatiliyor, sonra hicbir sey olmuyordu. Ne donem ilerliyor, ne borc
+/// olusuyor, ne de odemenin izi kaliyordu. Bu tablo dongunun kaydi.
+///
+/// Tutar ve paket fatura aninda DONDURULUR. Isletme paket degistirse ya da
+/// liste fiyati artsa bile gecmis fatura degismiyor — kaporadaki ve
+/// komisyondaki gerekce ile ayni.
+///
+/// `@@unique([businessId, periodStart])` fatura uretimini fikir olarak
+/// idempotent yapiyor: zamanlanmis is gunde bir degil, saatte bir kossa da
+/// ayni donem icin ikinci fatura yazilamaz. Kuyruk isleri en az bir kez
+/// calisir (`ProcessedEvent` ile ayni sebep).
+model SubscriptionInvoice {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  planKey String
+  /// Aylik ucret (TL), fatura aninda dondurulur.
+  amount  Int
+
+  periodStart DateTime
+  periodEnd   DateTime
+  /// Son odeme tarihi; isletmeye gosterilen vade.
+  dueAt       DateTime
+
+  /// DUE: odenmedi · PAID: tahsil edildi · VOID: gecersiz kilindi
+  status String @default("DUE")
+
+  paidAt     DateTime?
+  /// MANUAL: havale/EFT, yonetici isaretledi · CARD: saglayici tahsil etti.
+  /// Bugun yalnizca MANUAL uretiliyor: lisansli odeme kurulusu sozlesmesi
+  /// yok, kart saklama ve tekrarlayan tahsilat mumkun degil.
+  paidMethod String?
+  /// Dekont numarasi ya da yoneticinin notu.
+  paidNote   String?
+  voidReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, periodStart])
+  @@index([status, dueAt])
+}
+
 model ReservationService {
   id            String      @id @default(cuid())
   reservationId String

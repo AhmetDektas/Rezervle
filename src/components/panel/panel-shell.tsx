@@ -298,8 +298,15 @@ function PlanNotice({ business }: { business: PanelBusiness }) {
         <AlertTriangle size={17} className="shrink-0" aria-hidden />
         <span className="flex-1">
           <span className="font-semibold">Ödemeniz bekleniyor.</span> Randevularınız
-          çalışmaya devam ediyor; lütfen destek ekibiyle iletişime geçin.
+          çalışmaya devam ediyor. Fatura tutarını ve ödeme bilgilerini ayarlar
+          sayfasında görebilirsiniz.
         </span>
+        <Link
+          href={`/panel/${business.slug}/ayarlar`}
+          className="font-medium underline-offset-4 hover:underline"
+        >
+          Faturayı gör
+        </Link>
       </div>
     );
   }

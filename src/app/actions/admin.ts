@@ -7,6 +7,7 @@ import { requireRoleAction } from '@/server/auth';
 import { notifyUser } from '@/server/notifications';
 import { BUSINESS_STATUSES, type BusinessStatus, ROLES, type Role } from '@/lib/constants';
 import { slugify } from '@/lib/utils';
+import { markInvoicePaid, voidInvoice } from '@/server/subscription';
 
 async function audit(
   actorId: string,
@@ -250,5 +251,59 @@ export async function toggleDepositAddonAction(
     return undefined;
   }, { action: 'toggleDepositAddonAction' });
   if (result.ok) revalidatePath('/yonetim/isletmeler');
+  return result;
+}
+
+/**
+ * Abonelik faturasını ödenmiş işaretler.
+ *
+ * Tahsilat bugün havale/EFT: para hesaba geçiyor, yönetici dekontu görüp
+ * burayı işaretliyor. Kart otomatik tahsilatı yazılamadı — lisanslı ödeme
+ * kuruluşu sözleşmesi yok (docs/dagitim.md 1.1). Bu yüzden ödemenin tek
+ * kanıtı insanın gördüğü dekont; `note` alanı onun izini taşıyor ve denetim
+ * kaydına da geçiyor.
+ */
+export async function markSubscriptionPaidAction(
+  invoiceId: string,
+  note?: string,
+): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const admin = await requireRoleAction(['ADMIN']);
+    ctx.userId = admin.id;
+    ctx.meta = { invoiceId };
+    const { businessId, amount } = await markInvoicePaid({ invoiceId, note });
+    await audit(admin.id, 'subscription.paid', 'SubscriptionInvoice', invoiceId, {
+      businessId,
+      amount,
+      note: note?.trim() || null,
+    });
+    return undefined;
+  }, { action: 'markSubscriptionPaidAction' });
+  if (result.ok) {
+    revalidatePath('/yonetim/abonelikler');
+    revalidatePath('/yonetim/isletmeler');
+  }
+  return result;
+}
+
+/** Yanlış kesilen faturayı geçersiz kılar. Gerekçe zorunlu. */
+export async function voidSubscriptionInvoiceAction(
+  invoiceId: string,
+  reason: string,
+): Promise<ActionResult<undefined>> {
+  const result = await run(async (ctx) => {
+    const admin = await requireRoleAction(['ADMIN']);
+    ctx.userId = admin.id;
+    ctx.meta = { invoiceId };
+    await voidInvoice({ invoiceId, reason });
+    await audit(admin.id, 'subscription.void', 'SubscriptionInvoice', invoiceId, {
+      reason: reason.trim(),
+    });
+    return undefined;
+  }, { action: 'voidSubscriptionInvoiceAction' });
+  if (result.ok) {
+    revalidatePath('/yonetim/abonelikler');
+    revalidatePath('/yonetim/isletmeler');
+  }
   return result;
 }

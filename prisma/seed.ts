@@ -21,6 +21,7 @@ import { CONSENT_KINDS, CONSENT_VERSION, termsFor } from '../src/lib/constants';
 import { subeKoordinat } from './seed-data';
 import { PLANS } from '../src/lib/plans';
 import { bookingTotals } from '../src/lib/services';
+import { kesilecekDonem, ayEkle, gunEkle, ODEME_VADESI_GUN } from '../src/lib/subscription';
 
 const prisma = new PrismaClient();
 
@@ -737,6 +738,58 @@ async function main(): Promise<void> {
     ),
   });
   console.log(`  ${tumKullanicilar.length * CONSENT_KINDS.length} rıza kaydı`);
+
+  // --- Abonelik faturaları ---------------------------------------------
+  //
+  // Döngünün kendisi worker'da (`abonelik-dongusu`) ama tohum verisi onu
+  // beklemiyor: yönetim ekranı ilk açılışta boş görünmesin ve akış demo'da
+  // görülebilsin. Aynı saf fonksiyon kullanılıyor (`kesilecekDonem`), yani
+  // burada üretilen fatura işin üreteceğiyle birebir aynı.
+  //
+  // `src/server/subscription.ts` doğrudan çağrılamıyor: `server-only`
+  // taşıyor ve tohum düz Node'da koşuyor.
+  const abonelikler = await prisma.business.findMany({
+    select: {
+      id: true, planKey: true, planPrice: true, planStatus: true,
+      trialEndsAt: true, currentPeriodEnd: true,
+    },
+  });
+
+  const faturalar: {
+    businessId: string; planKey: string; amount: number;
+    periodStart: Date; periodEnd: Date; dueAt: Date; status: string;
+    paidAt: Date | null; paidMethod: string | null; paidNote: string | null;
+  }[] = [];
+
+  for (const b of abonelikler) {
+    // Ödeyen işletmelerin geçmişi: son iki dönem tahsil edilmiş görünsün.
+    if (b.planStatus === 'ACTIVE' && b.currentPeriodEnd && b.planPrice > 0) {
+      for (let geri = 2; geri >= 1; geri--) {
+        const bas = ayEkle(b.currentPeriodEnd, -geri);
+        faturalar.push({
+          businessId: b.id, planKey: b.planKey, amount: b.planPrice,
+          periodStart: bas, periodEnd: ayEkle(bas, 1), dueAt: gunEkle(bas, ODEME_VADESI_GUN),
+          status: 'PAID', paidAt: gunEkle(bas, int(1, 5)),
+          paidMethod: 'MANUAL', paidNote: `Havale ref ${int(1000, 9999)}`,
+        });
+      }
+    }
+
+    // Dönemi bitmiş olanlara açık fatura.
+    const donem = kesilecekDonem(b, new Date());
+    if (donem) {
+      faturalar.push({
+        businessId: b.id, planKey: b.planKey, amount: b.planPrice,
+        periodStart: donem.periodStart, periodEnd: donem.periodEnd, dueAt: donem.dueAt,
+        status: 'DUE', paidAt: null, paidMethod: null, paidNote: null,
+      });
+    }
+  }
+
+  for (let i = 0; i < faturalar.length; i += 500) {
+    await prisma.subscriptionInvoice.createMany({ data: faturalar.slice(i, i + 500) });
+  }
+  console.log(`  ${faturalar.length} abonelik faturası`);
 
   const counts = {
     kullanıcı: await prisma.user.count(),

@@ -1,6 +1,7 @@
 import 'server-only';
 import { releaseExpiredJob } from './release-expired';
 import { reminderJob } from './reminders';
+import { subscriptionCycleJob } from './subscription-cycle';
 
 /**
  * İş kayıt noktası.
@@ -9,7 +10,7 @@ import { reminderJob } from './reminders';
  * edilirse. Bu dosya olmadan worker "hiç iş tanımlı değil" diye açılmadan
  * kapanırdı — sessiz değil, ama yine de kolayca gözden kaçacak bir bağ.
  */
-export { releaseExpiredJob, reminderJob };
+export { releaseExpiredJob, reminderJob, subscriptionCycleJob };
 
 /**
  * Belirli aralıkla kendiliğinden çalışan işler.
@@ -28,4 +29,9 @@ export async function scheduleRecurring(): Promise<void> {
   // hiçbir randevuyu atlamıyor ve pencereyi iki kez yakalasa bile
   // reminderSentAt ikinci gönderimi engelliyor.
   await reminderJob.schedule(5 * 60_000, {});
+
+  // Abonelik dönemi gün hassasiyetinde; saatte bir taramak aynı sonucu verir
+  // ama gereksiz. Daha sık koşması zararsız: fatura üretimi dönem anahtarıyla
+  // idempotent, deneme uyarısı damgayla tek sefer.
+  await subscriptionCycleJob.schedule(6 * 60 * 60_000, {});
 }

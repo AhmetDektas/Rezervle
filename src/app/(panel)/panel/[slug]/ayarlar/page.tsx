@@ -9,6 +9,7 @@ import { BusinessProfileForm, ReviewReply } from '@/components/panel/business-se
 import { GalleryManager } from '@/components/panel/gallery-manager';
 import { DepositSettings } from '@/components/panel/deposit-settings';
 import { PayoutSettings } from '@/components/panel/payout-settings';
+import { SubscriptionCard } from '@/components/panel/subscription-card';
 import { BusinessCover } from '@/components/business/cover';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,13 @@ export default async function SettingsPage({ params }: { params: Params }) {
   if (!business) notFound();
   await requireBusinessAccess(user, business.id);
 
+  // En eski açık fatura: birden fazla dönem birikmişse önce o ödenmeli.
+  const acikFatura = await prisma.subscriptionInvoice.findFirst({
+    where: { businessId: business.id, status: 'DUE' },
+    orderBy: { periodStart: 'asc' },
+    select: { id: true, amount: true, periodStart: true, periodEnd: true, dueAt: true },
+  });
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -59,6 +67,17 @@ export default async function SettingsPage({ params }: { params: Params }) {
           </Link>
         </Button>
       </div>
+
+      <SubscriptionCard
+        planKey={business.planKey}
+        planStatus={business.planStatus}
+        planPrice={business.planPrice}
+        trialEndsAt={business.trialEndsAt}
+        currentPeriodEnd={business.currentPeriodEnd}
+        acikFatura={acikFatura}
+        iban={process.env['SUBSCRIPTION_IBAN'] ?? null}
+        unvan={process.env['SUBSCRIPTION_TITLE'] ?? null}
+      />
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <Card>

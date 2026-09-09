@@ -24,6 +24,13 @@ async function rizayiAyarla(page: import('@playwright/test').Page, ver: boolean)
     await page.getByRole('button', { name: 'Geri al' }).click();
     await expect(rizaVer).toBeVisible({ timeout: 15_000 });
   }
+
+  // Rıza eylemi `router.refresh()` çağırıyor ve düğme yeni durumunu
+  // gösterdiğinde bu yenileme HÂLÂ uçuşta olabiliyor. Test hemen başka bir
+  // sayfaya geçerse gecikmiş yenileme sayfayı /profil'e geri sürüklüyor ve
+  // sıradaki adım "hizmet seçilemiyor" diye düşüyordu — mobilde, yani yavaş
+  // profilde. Yenilemenin bitmesini beklemek yarışı kapatıyor.
+  await page.waitForLoadState('networkidle');
 }
 
 // Randevu hız sınırı testler arası taşmasın (bkz. helpers.resetRateLimits).

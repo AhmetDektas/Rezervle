@@ -168,6 +168,7 @@ Tek sözleşme: `defineJob` (`src/worker/define-job.ts`).
 |---|---|---|
 | `odeme-suresi-doldu` | 1 dk | Süresi geçen 3DS kayıtlarını iptal eder, saati açar |
 | `randevu-hatirlatma` | 5 dk | 24 saat kalan randevular için hatırlatma |
+| `abonelik-dongusu` | 6 sa | Deneme uyarısı, dönem faturası, durum eşitleme |
 
 Ortak davranış:
 
@@ -179,8 +180,48 @@ Ortak davranış:
   bu listenin kendisi, `/yonetim/kuyruk` onu okuyor.
 
 İdempotens her işte ayrı: `reminderSentAt` damgası, `paymentDeadline` koşullu
-güncelleme. Yeniden deneme olan yerde "iki kez çalışırsa ne olur" sorusunun
-cevabı yazılı olmalı.
+güncelleme, abonelikte `@@unique([businessId, periodStart])`. Yeniden deneme
+olan yerde "iki kez çalışırsa ne olur" sorusunun cevabı yazılı olmalı.
+
+---
+
+## 5b. Abonelik döngüsü
+
+Platformun **ana geliri**. Kural tek cümle: *ödenmemiş faturası olan işletme
+`PAST_DUE`'dur.* `planStatus` bağımsız bir bayrak değil, faturaların türevi;
+yalnızca `durumuEsitle` yazar. İki yerde elle güncellenseydi işletme panelde
+"ödendi" görürken yönetimde borçlu görünürdü.
+
+```
+deneme (trialEndsAt)
+   │
+   ├── bitmesine 7 gün ──▶ uyarı (trialWarnedAt damgası, bir kez)
+   │
+   └── bitti ──▶ ilk dönemin faturası ──▶ PAST_DUE
+                       │
+                yönetici "ödendi" ──▶ ACTIVE, currentPeriodEnd ilerler
+                       │
+                dönem bitti ──▶ sonraki dönemin faturası ──▶ PAST_DUE
+```
+
+Kararlar ve gerekçeleri:
+
+- **`PAST_DUE` hizmeti kapatmaz.** İşletmeyi kilitlemek onun müşterisini
+  cezalandırırdı; müşteri gecikmiş faturadan haberdar bile değil. Gecikme
+  panelde uyarı, yönetimde liste.
+- **Dönem, ödenen dönemin bittiği yerden devam eder** (`currentPeriodEnd`),
+  "bugün + 1 ay"dan değil. Aksi halde her geç ödeme birkaç gün bedava
+  kullanım verir ve dönemler kalıcı olarak kayardı.
+- **Takvim ayı eklenir**, 30 gün değil; ayın 31'i şubatta ayın son gününe
+  düşer. Düzeltilmeseydi 31 Ocak → 3 Mart olurdu.
+- **Paket seçilmemişse fatura kesilmez.** İşletmenin seçmediği bir tutarı
+  borç yazmak, tersinden düzeltmesi pahalı bir hata. Bu işletmeler
+  `/yonetim/abonelikler` sayfasında ayrıca listelenir.
+- **Tahsilat havale/EFT**, yönetici dekontu görüp işaretliyor. Kart otomatik
+  tahsilatı yazılamadı: lisansli ödeme kuruluşu sözleşmesi yok (bkz.
+  `docs/dagitim.md` 1.1) ve tekrarlayan tahsilat kart saklama gerektiriyor.
+  `SubscriptionInvoice.paidMethod` `CARD`'ı bekliyor; adaptör geldiğinde
+  değişmesi gereken tek şey faturanın nasıl `PAID` olduğu.
 
 ---
 

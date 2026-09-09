@@ -65,6 +65,8 @@ AUTH_SECRET="<openssl rand -base64 48>"    # MUTLAKA değiştirin
 NEXT_PUBLIC_APP_URL="https://<alan-adiniz>"
 NODE_ENV="production"
 DEPOSITS_ENABLED="false"                   # ödeme hazır değilse
+SUBSCRIPTION_IBAN="TR.."                   # abonelik havalesi için
+SUBSCRIPTION_TITLE="<ünvan>"
 ```
 
 `AUTH_SECRET` varsayılan bırakılırsa oturum çerezleri tahmin edilebilir olur.
@@ -72,6 +74,10 @@ Uygulama üretimde varsayılan anahtarla **açılmayı reddeder**.
 
 `REDIS_URL` tanımsızsa hız sınırı **sessizce devre dışı kalır**. Üretimde
 mutlaka tanımlı olmalı.
+
+`SUBSCRIPTION_IBAN` / `SUBSCRIPTION_TITLE` işletmenin panelinde gösterilir.
+Tanımsız bırakılırsa panel "ödeme bilgileri henüz tanımlanmadı" yazar —
+uydurma bir hesap göstermek, yanlış hesaba yapılan havale demek olurdu.
 
 ### 2.2 İki süreç birden çalışmalı
 
