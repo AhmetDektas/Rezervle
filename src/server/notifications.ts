@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { notify as notifyChannels } from './providers';
+import { pushGonder } from './push';
 import { logSideEffectFailure } from './log';
 
 type NotifyInput = {
@@ -28,6 +29,28 @@ export async function notifyUser(
       href: input.href ?? null,
     },
   });
+
+  // PUSH `alsoSend`E BAĞLI DEĞİL, uygulama içi kayda bağlı.
+  //
+  // `alsoSend` "e-posta/SMS de gitsin" demek ve işletme bildirimlerinde hiç
+  // kullanılmıyor: işletme sahibi bugün yeni randevudan ancak paneli açınca
+  // haberdar oluyor. Push'u o bloğun içine koysaydık tam olarak ihtiyaç
+  // duyulan yerde çalışmazdı.
+  //
+  // Doğru okuma şu: uygulama içi bildirim SAKLANAN kayıt, push aynı kaydın
+  // CİHAZA ULAŞTIRILMASI. İkisi aynı olayın iki yüzü, ayrı kanallar değil.
+  // Kullanıcı zaten cihaz cihaz izin verdiği için gürültü riski yok.
+  //
+  // Bildirimlerin işlem DIŞINDA çağrıldığına güveniyoruz (bkz.
+  // payment-events.ts): geri alınabilecek bir kayıt için push göndermek,
+  // geri alınamayan bir bildirim olurdu.
+  await pushGonder(input.userId, {
+    title: input.title,
+    body: input.body ?? input.title,
+    ...(input.href ? { url: input.href } : {}),
+    ...(input.kind ? { tag: input.kind } : {}),
+  });
+
   if (input.alsoSend) {
     const user = await tx.user.findUnique({
       where: { id: input.userId },
@@ -45,10 +68,25 @@ export async function notifyUser(
       // tutulduğu tek yer.
       //
       // Profili olmayan hesaplar (işletme sahibi, personel, yönetici) için
-      // tercih yok: operasyonel bildirim almaları gerekiyor, varsayılan açık.
+      // tercih kaydı yok: e-posta onlara her zaman gider, operasyonel bildirim
+      // almaları gerekiyor. SMS için durum farklı, hemen aşağıda.
       const prefs = user.customerProfile;
       const email = prefs && !prefs.emailOptIn ? null : user.email;
-      const phone = prefs && !prefs.smsOptIn ? null : user.phone;
+
+      // SMS YALNIZCA MÜŞTERİYE.
+      //
+      // İşletme sahibi ve personel için doğru kanal push: panel zaten açık,
+      // giriş yapılmış, bildirim anında ve bedava düşüyor. SMS onlar için
+      // rezervasyon başına değişken maliyet ekleyip hiçbir şey kazandırmıyor.
+      //
+      // Müşteride ise push SMS'in yerini ALAMAZ: iOS'ta yalnızca uygulama ana
+      // ekrana eklenmişse çalışıyor ve yılda birkaç kez randevu alan bir
+      // müşteri uygulamayı kurmuyor. Hatırlatma ulaşmazsa müşteri gelmiyor;
+      // bu doğrudan işletmenin zararı ve panelde "Gelmedi" olarak ölçtüğümüz
+      // metriğin ta kendisi.
+      const musteri = Boolean(prefs);
+      const phone = musteri && prefs?.smsOptIn ? user.phone : null;
+
       // E-posta/SMS gönderimi asıl işlemin başarı şartı DEĞİLDİR.
       //
       // Konsol adaptörleri hiç patlamadığı için bu bugüne kadar görünmedi;

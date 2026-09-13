@@ -50,6 +50,7 @@ model User {
   tagLinks        CustomerTagLink[]
   pets            PetProfile[]
   consents        Consent[]
+  pushSubs        PushSubscription[]
 
   @@index([role])
 }
@@ -670,6 +671,32 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+/// Tarayıcı push aboneliği (Web Push, VAPID).
+///
+/// Bir kullanıcının BİRDEN FAZLA aboneliği olur: telefonu, tableti, iş
+/// bilgisayarı ayrı birer uç nokta. Bu yüzden tekil anahtar userId değil
+/// endpoint — aynı cihaz yeniden abone olduğunda kayıt güncellenir, yenisi
+/// eklenmez.
+///
+/// Ölü abonelikler temizlenir: tarayıcı izni kaldırıldığında ya da uygulama
+/// silindiğinde push servisi 404/410 döner ve satır silinir (bkz. server/push.ts).
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Push servisinin (FCM, Mozilla, WNS) bu cihaz için verdiği adres.
+  endpoint   String   @unique
+  /// Yük şifrelemesi için cihazın açık anahtarı ve doğrulama sırrı.
+  p256dh     String
+  auth       String
+  /// Hangi cihaz olduğunu kullanıcıya gösterebilmek için.
+  userAgent  String   @default("")
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Payment {

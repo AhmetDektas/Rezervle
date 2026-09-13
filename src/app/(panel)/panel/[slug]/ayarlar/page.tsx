@@ -5,11 +5,13 @@ import { ExternalLink, MessageSquareQuote } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { depositPolicyFor } from '@/server/deposit-policy';
 import { requireRole, requireBusinessAccess } from '@/server/auth';
+import { pushAcikAnahtar } from '@/server/push';
 import { BusinessProfileForm, ReviewReply } from '@/components/panel/business-settings';
 import { GalleryManager } from '@/components/panel/gallery-manager';
 import { DepositSettings } from '@/components/panel/deposit-settings';
 import { PayoutSettings } from '@/components/panel/payout-settings';
 import { SubscriptionCard } from '@/components/panel/subscription-card';
+import { PushToggle } from '@/components/shell/push-toggle';
 import { BusinessCover } from '@/components/business/cover';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +80,21 @@ export default async function SettingsPage({ params }: { params: Params }) {
         iban={process.env['SUBSCRIPTION_IBAN'] ?? null}
         unvan={process.env['SUBSCRIPTION_TITLE'] ?? null}
       />
+
+      <Card>
+        <CardHeader
+          title="Telefon bildirimleri"
+          description="Yeni randevu geldiğinde panel kapalıyken de haberiniz olsun"
+        />
+        <CardBody>
+          {/*
+            İzin CİHAZ BAŞINA veriliyor: sahibi telefonunda açıp salondaki
+            tablette kapalı bırakabilir. Bu yüzden düğme "bu cihaz" diyor,
+            hesap ayarı gibi görünmüyor.
+          */}
+          <PushToggle acikAnahtar={pushAcikAnahtar()} />
+        </CardBody>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <Card>
