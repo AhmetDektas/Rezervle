@@ -68,7 +68,15 @@ async function uygunSaatSec(page: Page): Promise<boolean> {
   const gunSayisi = await gunler.count();
   for (let i = 0; i < Math.min(gunSayisi, 8); i++) {
     await gunler.nth(i).click();
-    await page.waitForTimeout(900);
+    // Sabit bekleme YERİNE yüklemenin bitmesi bekleniyor. `waitForTimeout(900)`
+    // hızlı sunucuda çalışıyor ama uzun koşuların sonunda saatler henüz
+    // gelmemiş oluyordu; test "bu günde saat yok" deyip sıradaki güne geçiyor
+    // ve sekiz günü de boş sayıp düşüyordu. Ölçtüğü şey uygulamanın değil,
+    // sunucunun o anki hızıydı.
+    await page
+      .getByRole('status', { name: 'Saatler yükleniyor' })
+      .waitFor({ state: 'hidden', timeout: 20_000 })
+      .catch(() => undefined);
     if ((await saatler.count()) > 0) {
       await saatler.first().click();
       return true;

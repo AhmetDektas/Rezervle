@@ -52,7 +52,10 @@ test.describe('işletme başvurusu', () => {
 
     // Paket seçmek zorunlu değil: deneme başvuruyla başladı.
     await page.getByRole('button', { name: /Şimdilik geç/ }).click();
-    await page.waitForURL(/\/panel\//, { timeout: 20_000 });
+    // 45 sn: yapılandırmadaki navigationTimeout ile aynı. Burada iki gezinme
+    // zincirleniyor (/panel → /panel/<slug>) ve geliştirme sunucusu uzun
+    // koşuların sonunda belirgin şekilde yavaşlıyor; 20 sn o noktada yetmiyordu.
+    await page.waitForURL(/\/panel\//, { timeout: 45_000 });
     await expect(page.getByText('Başvurunuz inceleniyor.')).toBeVisible();
 
     const slug = new URL(page.url()).pathname.split('/')[2];

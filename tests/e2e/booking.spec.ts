@@ -6,6 +6,38 @@ test.beforeEach(async () => {
   await resetRateLimits();
 });
 
+
+/**
+ * Yaklaşan randevular arasında, verilen düğmeyi taşıyan ilk kaydı açar.
+ *
+ * Önceden yalnızca ilk 6 karta bakılıyordu. Liste artık doğru sıralandığı için
+ * (en yakın randevu en üstte) ilk kartlar bugünün geçmiş ya da 2 saatten yakın
+ * randevuları oluyor ve hiçbirinde iptal/erteleme düğmesi bulunmuyor. Sabit
+ * bir pencereye bakmak testi veri dağılımına bağımlı kılıyordu; bu yüzden
+ * sayfalar gezilerek aranıyor.
+ */
+async function randevuAc(
+  page: import('@playwright/test').Page,
+  dugme: string,
+  enFazlaSayfa = 3,
+): Promise<boolean> {
+  for (let sayfa = 1; sayfa <= enFazlaSayfa; sayfa++) {
+    const adres = sayfa === 1 ? '/randevularim' : `/randevularim?sayfa=${sayfa}`;
+    await page.goto(adres);
+    const kartlar = page.locator('a[href^="/randevularim/"]');
+    const adet = await kartlar.count();
+    if (adet === 0) return false;
+
+    for (let i = 0; i < adet; i++) {
+      await page.goto(adres);
+      await page.locator('a[href^="/randevularim/"]').nth(i).click();
+      await page.waitForURL(/randevularim\/.+/, { timeout: 15_000 });
+      if ((await page.getByRole('button', { name: dugme }).count()) > 0) return true;
+    }
+  }
+  return false;
+}
+
 test.describe('müşteri randevu yolculuğu', () => {
   test('keşfetten randevuya kadar uçtan uca çalışır', async ({ page }) => {
     await login(page, ACCOUNTS.customer);
@@ -66,75 +98,47 @@ test.describe('müşteri randevu yolculuğu', () => {
 
   test('randevu iptal edilebilir ve listeden düşer', async ({ page }) => {
     await login(page, ACCOUNTS.customer);
-    await page.goto('/randevularim');
 
-    // İptal edilebilir (2 saatten uzak) bir yaklaşan randevu bul.
-    const links = page.locator('a[href^="/randevularim/"]');
-    const count = Math.min(await links.count(), 6);
-    expect(count, 'demo müşterinin en az bir yaklaşan randevusu olmalı').toBeGreaterThan(0);
+    const bulundu = await randevuAc(page, 'İptal et');
+    expect(bulundu, 'iptal edilebilir bir yaklaşan randevu bulunmalı').toBe(true);
 
-    let cancelled = false;
-    for (let i = 0; i < count; i++) {
-      await page.goto('/randevularim');
-      await page.locator('a[href^="/randevularim/"]').nth(i).click();
-      await page.waitForURL(/randevularim\/.+/, { timeout: 15_000 });
-      const cancelButton = page.getByRole('button', { name: 'İptal et' });
-      if ((await cancelButton.count()) === 0) continue;
-
-      await cancelButton.click();
-      await page.getByRole('button', { name: 'Evet, iptal et' }).click();
-      await expect(page.locator('#icerik').getByText('İptal edildi').first()).toBeVisible({
-        timeout: 15_000,
-      });
-      cancelled = true;
-      break;
-    }
-    expect(cancelled, 'iptal edilebilir bir randevu bulunup iptal edilmeli').toBe(true);
+    await page.getByRole('button', { name: 'İptal et' }).click();
+    await page.getByRole('button', { name: 'Evet, iptal et' }).click();
+    await expect(page.locator('#icerik').getByText('İptal edildi').first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('randevu ertelenebilir ve yeni saat kaydedilir', async ({ page }) => {
     await login(page, ACCOUNTS.customer);
-    await page.goto('/randevularim');
 
-    const links = page.locator('a[href^="/randevularim/"]');
-    const count = Math.min(await links.count(), 6);
-    let moved = false;
+    const bulundu = await randevuAc(page, 'Ertele');
+    expect(bulundu, 'ertelenebilir bir yaklaşan randevu bulunmalı').toBe(true);
 
-    for (let i = 0; i < count; i++) {
-      await page.goto('/randevularim');
-      await page.locator('a[href^="/randevularim/"]').nth(i).click();
-      await page.waitForURL(/randevularim\/.+/, { timeout: 15_000 });
+    await page.getByRole('button', { name: 'Ertele' }).click();
 
-      const postpone = page.getByRole('button', { name: 'Ertele' });
-      if ((await postpone.count()) === 0) continue;
-      await postpone.click();
-
-      // Uygun saat çıkan ilk günü seç.
-      const slots = page.locator('button').filter({ hasText: /^\d{2}:\d{2}$/ });
-      const days = page.getByRole('option');
-      const dayCount = await days.count();
-      let picked = false;
-      for (let d = 0; d < Math.min(dayCount, 6); d++) {
-        await days.nth(d).click();
-        await page.waitForTimeout(900);
-        if ((await slots.count()) > 0) {
-          picked = true;
-          break;
-        }
+    // Uygun saat çıkan ilk günü seç.
+    const slots = page.locator('button').filter({ hasText: /^\d{2}:\d{2}$/ });
+    const days = page.getByRole('option');
+    const dayCount = await days.count();
+    let picked = false;
+    for (let d = 0; d < Math.min(dayCount, 6); d++) {
+      await days.nth(d).click();
+      await page.waitForTimeout(900);
+      if ((await slots.count()) > 0) {
+        picked = true;
+        break;
       }
-      if (!picked) break;
-
-      const target = await slots.first().innerText();
-      await slots.first().click();
-      await page.getByRole('button', { name: 'Yeni saate taşı' }).click();
-
-      await expect(page.locator('#icerik').getByText(target).first()).toBeVisible({
-        timeout: 20_000,
-      });
-      moved = true;
-      break;
     }
-    expect(moved, 'ertelenebilir bir randevu bulunup taşınmalı').toBe(true);
+    expect(picked, 'erteleme için uygun bir gün bulunmalı').toBe(true);
+
+    const target = await slots.first().innerText();
+    await slots.first().click();
+    await page.getByRole('button', { name: 'Yeni saate taşı' }).click();
+
+    await expect(page.locator('#icerik').getByText(target).first()).toBeVisible({
+      timeout: 20_000,
+    });
   });
 });
 
