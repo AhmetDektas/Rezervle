@@ -16,7 +16,18 @@ import { serviceLabel } from '@/lib/services';
 export const metadata: Metadata = { title: 'Randevularım' };
 export const dynamic = 'force-dynamic';
 
-type Search = Promise<{ sekme?: string }>;
+type Search = Promise<{ sekme?: string; sayfa?: string }>;
+
+/**
+ * Sayfa başına randevu.
+ *
+ * Sayfa önceden müşterinin BÜTÜN randevularını çekiyordu: sınır yok, filtre
+ * JavaScript'te. Düzenli randevu alan bir müşteride bu liste sürekli büyüyor
+ * ve sayfa kullanılamaz hâle geliyor — demo hesapta 1420 kayda ulaşmıştı ve
+ * uçtan uca testler bu yüzden zaman aşımına uğruyordu. Keşfet sayfasında
+ * kapatılan hatanın aynısı.
+ */
+const SAYFA_ADEDI = 20;
 
 export default async function MyReservationsPage({ searchParams }: { searchParams: Search }) {
   const [user, search] = await Promise.all([requireUser('/randevularim'), searchParams]);
@@ -24,9 +35,39 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
   const t = today();
   const nm = nowMinutes();
 
-  const all = await prisma.reservation.findMany({
-    where: { customerId: user.id },
-    orderBy: [{ date: 'desc' }, { startMin: 'desc' }],
+  const sayfa = Math.max(1, Number(search.sayfa) || 1);
+
+  // Yaklaşan/geçmiş ayrımı artık SQL'de. Önceden bütün kayıtlar çekilip
+  // JavaScript'te süzülüyordu: atılacak veriyi de altı tabloyla birleştirip
+  // taşımak demekti.
+  const aktifDurum = { status: { notIn: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } };
+  const gelecekZaman = { OR: [{ date: { gt: t } }, { date: t, endMin: { gte: nm } }] };
+  const yaklasanKosul = { customerId: user.id, ...aktifDurum, ...gelecekZaman };
+  // Geçmiş, yaklaşanın tam tersi (De Morgan): ya durum kapalı ya zaman geçmiş.
+  const gecmisKosul = {
+    customerId: user.id,
+    OR: [
+      { status: { in: ['CANCELLED', 'COMPLETED', 'NO_SHOW'] } },
+      { date: { lt: t } },
+      { date: t, endMin: { lt: nm } },
+    ],
+  };
+
+  const [upcomingCount, pastCount] = await Promise.all([
+    prisma.reservation.count({ where: yaklasanKosul }),
+    prisma.reservation.count({ where: gecmisKosul }),
+  ]);
+
+  // take + 1: fazladan bir kayıt istemek, ayrı bir sayım sorgusu açmadan
+  // "devamı var mı" sorusunu cevaplıyor.
+  const kayitlar = await prisma.reservation.findMany({
+    where: tab === 'gecmis' ? gecmisKosul : yaklasanKosul,
+    orderBy:
+      tab === 'gecmis'
+        ? [{ date: 'desc' }, { startMin: 'desc' }]
+        : [{ date: 'asc' }, { startMin: 'asc' }],
+    take: SAYFA_ADEDI + 1,
+    skip: (sayfa - 1) * SAYFA_ADEDI,
     include: {
       business: { select: { name: true, slug: true, brandHue: true, category: { select: { sector: true } } } },
       branch: { select: { name: true, district: true } },
@@ -38,16 +79,16 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
     },
   });
 
-  // "Yaklaşan": iptal edilmemiş ve zamanı geçmemiş kayıtlar.
-  const isUpcoming = (r: (typeof all)[number]): boolean =>
-    r.status !== 'CANCELLED' &&
-    r.status !== 'COMPLETED' &&
-    r.status !== 'NO_SHOW' &&
-    (r.date > t || (r.date === t && r.endMin >= nm));
+  const dahaVar = kayitlar.length > SAYFA_ADEDI;
+  const items = dahaVar ? kayitlar.slice(0, SAYFA_ADEDI) : kayitlar;
 
-  const upcoming = all.filter(isUpcoming).sort((a, b) => (a.date + a.startMin).localeCompare(b.date + b.startMin));
-  const past = all.filter((r) => !isUpcoming(r));
-  const items = tab === 'gecmis' ? past : upcoming;
+  function baglanti(hedef: number): string {
+    const qs = new URLSearchParams();
+    if (tab === 'gecmis') qs.set('sekme', 'gecmis');
+    if (hedef > 1) qs.set('sayfa', String(hedef));
+    const q = qs.toString();
+    return q ? `/randevularim?${q}` : '/randevularim';
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 sm:py-7">
@@ -61,10 +102,10 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
         role="tablist"
         aria-label="Randevu filtresi"
       >
-        <TabLink href="/randevularim" active={tab === 'yaklasan'} count={upcoming.length}>
+        <TabLink href="/randevularim" active={tab === 'yaklasan'} count={upcomingCount}>
           Yaklaşan
         </TabLink>
-        <TabLink href="/randevularim?sekme=gecmis" active={tab === 'gecmis'} count={past.length}>
+        <TabLink href="/randevularim?sekme=gecmis" active={tab === 'gecmis'} count={pastCount}>
           Geçmiş
         </TabLink>
       </div>
@@ -144,6 +185,31 @@ export default async function MyReservationsPage({ searchParams }: { searchParam
             ))}
           </ul>
         )}
+
+        {/* Sayfalama bağlantı olarak: JavaScript olmadan da çalışıyor ve her
+            sayfanın kendi adresi var — paylaşılabilir, geri tuşu doğru. */}
+        {sayfa > 1 || dahaVar ? (
+          <nav className="mt-6 flex items-center justify-between gap-3" aria-label="Sayfalama">
+            {sayfa > 1 ? (
+              <Button asChild variant="secondary">
+                <Link href={baglanti(sayfa - 1)} rel="prev">
+                  Önceki
+                </Link>
+              </Button>
+            ) : (
+              <span />
+            )}
+            {dahaVar ? (
+              <Button asChild variant="secondary">
+                <Link href={baglanti(sayfa + 1)} rel="next">
+                  Daha fazla göster
+                </Link>
+              </Button>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
       </div>
     </div>
   );
