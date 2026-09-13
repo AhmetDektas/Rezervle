@@ -81,6 +81,13 @@ else
 fi
 
 # --- 5) Bağımlılıklar ve derleme -----------------------------------------
+# Bu betik TEKRAR çalıştırılabilir, yani servisler çoktan ayakta olabilir.
+# `npm ci` node_modules'ü silerek başladığı için koşan sürüm MODULE_NOT_FOUND
+# ile çöker ve `Restart=always` yüzünden kurulum boyunca çökme döngüsüne
+# girer. Kurulum betiği sıcak dağıtım değil: servisi düzgünce durdurup
+# sonunda yeniden başlatmak doğru davranış. Sıcak yol için guncelle.sh'a bakın.
+systemctl stop rezzerv-web rezzerv-worker 2>/dev/null || true
+
 # devDependencies GEREKLİ: worker tsx ile çalışıyor ve `next build` de
 # geliştirme bağımlılıklarını kullanıyor.
 npm ci --no-audit --no-fund
@@ -134,7 +141,11 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now rezzerv-web rezzerv-worker
+# `enable --now` çoktan koşan bir birimi YENİDEN BAŞLATMAZ: betik ikinci kez
+# çalıştığında yeni derleme alınmaz, eski süreç eski .next ile devam ederdi.
+# Bu yüzden enable ve restart ayrı.
+systemctl enable rezzerv-web rezzerv-worker
+systemctl restart rezzerv-web rezzerv-worker
 echo "servisler kuruldu"
 
 # --- 7) nginx -------------------------------------------------------------

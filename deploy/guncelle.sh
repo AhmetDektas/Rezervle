@@ -17,6 +17,7 @@
 set -euo pipefail
 
 UYGULAMA=/opt/rezzerv
+HAZIRLIK=/opt/rezzerv-hazirlik   # bağımlılıklar önce buraya kurulur (bkz. bagimliliklari_kur)
 LOG=/root/rezzerv-dagitim.log
 KILIT=/run/rezzerv-dagitim.pid
 
@@ -66,13 +67,47 @@ YENI=$(git rev-parse --short HEAD)
 KILIT_SONRA=$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)
 echo "sürüm: $ONCEKI → $YENI"
 
-# `npm ci` node_modules'ü SİLİP 500 paketi baştan kuruyor: bu makinede 16
-# dakika. Çoğu dağıtımda kilit dosyası hiç değişmiyor, yani o 16 dakika
-# tamamen boşa gidiyordu. Yalnızca kilit değiştiğinde ya da node_modules
-# eksikken kuruluyor.
+# Bağımlılıkları KURULU AĞACIN YANINA kurar, sonunda yer değiştirir.
+#
+# `npm ci` işe node_modules'ü SİLEREK başlıyor. Ama eski sürüm o sırada hâlâ
+# koşuyor ve Next modülleri tembel yüklüyor; dizin ortadan kalkınca ilk
+# `require` çöküyor. Canlı logda görülen tam olarak buydu:
+#
+#   ⨯ [Error: Cannot find module 'next/dist/compiled/cookie'
+#     ... next/dist/cli/next-start.js] { code: 'MODULE_NOT_FOUND' }
+#
+# `Restart=always` olduğu için süreç hemen yeniden başlıyor, node_modules
+# hâlâ yarım olduğu için yine çöküyor: site kurulum boyunca — bu makinede 16
+# dakika — çökme döngüsünde kalıyor. Yeni ağaç ayrı bir dizinde kurulunca
+# eski sürüm sağlam node_modules ile çalışmaya devam ediyor; kesinti yalnızca
+# sondaki yeniden başlatma kadar oluyor.
+bagimliliklari_kur() {
+  rm -rf "$HAZIRLIK"
+  mkdir -p "$HAZIRLIK"
+  # npm ci'nin ihtiyacı olan iki dosya, bir de prisma/: @prisma/client'ın
+  # postinstall'ı şemayı arıyor, bulamazsa buradaki kurulum canlıdakinden
+  # farklı davranırdı. Aynı dosya sistemi, çünkü sondaki taşıma ancak aynı
+  # bölümde anlık ad değiştirme olur.
+  cp package.json package-lock.json "$HAZIRLIK/"
+  cp -r prisma "$HAZIRLIK/"
+  (cd "$HAZIRLIK" && npm ci --no-audit --no-fund)
+
+  # Takas iki adımda: eski ağaç kenara alınır, yenisi yerine geçer. Arada
+  # yolun boş kaldığı pencere milisaniye — yerini aldığı şey 16 dakikaydı.
+  # Koşan sürecin ZATEN AÇIK dosyaları Linux'ta inode üzerinden yaşadığı için
+  # eskisini silmek onu etkilemiyor.
+  rm -rf node_modules.eski
+  if [ -d node_modules ]; then mv node_modules node_modules.eski; fi
+  mv "$HAZIRLIK/node_modules" node_modules
+  rm -rf node_modules.eski "$HAZIRLIK"
+}
+
+# `npm ci` 500 paketi baştan kuruyor: bu makinede 16 dakika. Çoğu dağıtımda
+# kilit dosyası hiç değişmiyor, yani o 16 dakika tamamen boşa gidiyordu.
+# Yalnızca kilit değiştiğinde ya da node_modules eksikken kuruluyor.
 if [ "$KILIT_ONCE" != "$KILIT_SONRA" ] || [ ! -d node_modules ]; then
   echo "bağımlılıklar kuruluyor (kilit değişti ya da node_modules yok)…"
-  npm ci --no-audit --no-fund
+  bagimliliklari_kur
 else
   echo "bağımlılıklar değişmedi, kurulum atlandı"
 fi
