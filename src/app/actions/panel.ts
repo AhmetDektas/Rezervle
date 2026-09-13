@@ -6,6 +6,13 @@ import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction, assertBusinessAccess, hashPassword } from '@/server/auth';
 import { auditReservation, type ReservationIssue } from '@/server/audit';
 import {
+  assertBranchBelongs,
+  updateServiceScoped,
+  updateStaffScoped,
+  updateBranchScoped,
+  updatePromotionScoped,
+} from '@/server/panel-write';
+import {
   createReservation,
   setReservationStatus,
 } from '@/server/reservations';
@@ -191,22 +198,26 @@ export async function saveServiceAction(
     await assertBusinessAccess(user, businessId);
     const { id, staffIds, ...data } = parsed.data;
 
-    const service = id
-      ? await prisma.service.update({ where: { id }, data })
-      : await prisma.service.create({ data: { ...data, businessId } });
+    let serviceId: string;
+    if (id) {
+      await updateServiceScoped(businessId, id, data);
+      serviceId = id;
+    } else {
+      serviceId = (await prisma.service.create({ data: { ...data, businessId } })).id;
+    }
 
     // Hizmeti verebilecek personel listesini yeniden kur.
     const valid = await prisma.staffMember.findMany({
       where: { id: { in: staffIds }, businessId },
       select: { id: true },
     });
-    await prisma.staffService.deleteMany({ where: { serviceId: service.id } });
+    await prisma.staffService.deleteMany({ where: { serviceId } });
     if (valid.length > 0) {
       await prisma.staffService.createMany({
-        data: valid.map((s) => ({ staffId: s.id, serviceId: service.id })),
+        data: valid.map((s) => ({ staffId: s.id, serviceId })),
       });
     }
-    return { id: service.id };
+    return { id: serviceId };
   }, { action: 'saveServiceAction' });
   if (result.ok) touch(slug);
   return result;
@@ -247,10 +258,16 @@ export async function saveStaffAction(
     const user = await requireUserAction();
     await assertBusinessAccess(user, businessId);
     const { id, serviceIds, branchId, ...data } = parsed.data;
+    // Şube de doğrulanmalı: yalnızca personel kimliğini sınırlamak, personeli
+    // başka bir işletmenin şubesine bağlamayı engellemezdi.
+    if (branchId) await assertBranchBelongs(businessId, branchId);
 
-    const member = id
-      ? await prisma.staffMember.update({ where: { id }, data: { ...data, branchId: branchId || null } })
-      : await prisma.staffMember.create({
+    let member: { id: string };
+    if (id) {
+      await updateStaffScoped(businessId, id, { ...data, branchId: branchId || null });
+      member = { id };
+    } else {
+      member = await prisma.staffMember.create({
           data: {
             ...data,
             businessId,
@@ -267,6 +284,7 @@ export async function saveStaffAction(
             },
           },
         });
+    }
 
     const valid = await prisma.service.findMany({
       where: { id: { in: serviceIds }, businessId },
@@ -465,11 +483,8 @@ export async function saveBranchAction(
     const { id, phone, ...data } = parsed.data;
 
     if (id) {
-      const branch = await prisma.branch.update({
-        where: { id },
-        data: { ...data, phone: phone || null },
-      });
-      return { id: branch.id };
+      await updateBranchScoped(businessId, id, { ...data, phone: phone || null });
+      return { id };
     }
     const branch = await prisma.branch.create({
       data: {
@@ -514,8 +529,8 @@ export async function savePromotionAction(
 
     const data = { ...rest, kind, value, startsAt: starts, endsAt: ends };
     if (id) {
-      const promo = await prisma.promotion.update({ where: { id }, data });
-      return { id: promo.id };
+      await updatePromotionScoped(businessId, id, data);
+      return { id };
     }
     const exists = await prisma.promotion.findUnique({ where: { code: rest.code }, select: { id: true } });
     if (exists) throw new DomainError('Bu kod başka bir kampanyada kullanılıyor.', 'CODE_TAKEN');
