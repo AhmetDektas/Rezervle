@@ -30,6 +30,9 @@ const PRIVATE = process.env['VAPID_PRIVATE_KEY'] ?? '';
 // yazıyorlar. mailto: ya da https:// olmak zorunda.
 const SUBJECT = process.env['VAPID_SUBJECT'] ?? appUrl();
 
+/** Tek bir push isteğinin üst sınırı (bkz. pushGonder içindeki gerekçe). */
+const PUSH_TIMEOUT_MS = 5_000;
+
 let hazir = false;
 
 export function pushYapilandirildi(): boolean {
@@ -86,7 +89,16 @@ export async function pushGonder(userId: string, yuk: PushYuk): Promise<number> 
         await webpush.sendNotification(
           { endpoint: a.endpoint, keys: { p256dh: a.p256dh, auth: a.auth } },
           govde,
-          { TTL: 60 * 60 * 12 },
+          // TIMEOUT ZORUNLU. `notifyUser` bu çağrıyı bekliyor ve `notifyUser`
+          // randevu oluşturma akışının içinde. web-push varsayılan olarak
+          // hiçbir süre sınırı koymuyor (https.request'in kendi varsayılanı
+          // yok): yanıt vermeyen bir push servisi randevu isteğini süresiz
+          // askıda bırakırdı. Müşteri "randevu oluşturuluyor"da kalır.
+          //
+          // 5 sn cömert: sağlıklı push servisleri 200-400 ms'de dönüyor.
+          // Süre aşımı hata olarak yukarı çıkıyor, 404/410 olmadığı için
+          // abonelik silinmiyor ve bildirim bir sonraki olayda tekrar deneniyor.
+          { TTL: 60 * 60 * 12, timeout: PUSH_TIMEOUT_MS },
         );
         gonderilen += 1;
       } catch (err) {
