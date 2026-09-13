@@ -56,12 +56,27 @@ echo "=== $(date) güncelleme ==="
 cd "$UYGULAMA"
 
 ONCEKI=$(git rev-parse --short HEAD)
+# Kilit dosyasının ÖNCEKİ parmak izi: bağımlılıkları gerçekten yeniden kurmak
+# gerekip gerekmediğini bundan anlıyoruz.
+KILIT_ONCE=$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)
+
 git fetch --quiet origin
 git reset --hard origin/main --quiet
 YENI=$(git rev-parse --short HEAD)
+KILIT_SONRA=$(sha256sum package-lock.json 2>/dev/null | cut -d' ' -f1)
 echo "sürüm: $ONCEKI → $YENI"
 
-npm ci --no-audit --no-fund
+# `npm ci` node_modules'ü SİLİP 500 paketi baştan kuruyor: bu makinede 16
+# dakika. Çoğu dağıtımda kilit dosyası hiç değişmiyor, yani o 16 dakika
+# tamamen boşa gidiyordu. Yalnızca kilit değiştiğinde ya da node_modules
+# eksikken kuruluyor.
+if [ "$KILIT_ONCE" != "$KILIT_SONRA" ] || [ ! -d node_modules ]; then
+  echo "bağımlılıklar kuruluyor (kilit değişti ya da node_modules yok)…"
+  npm ci --no-audit --no-fund
+else
+  echo "bağımlılıklar değişmedi, kurulum atlandı"
+fi
+
 npx prisma migrate deploy
 npm run build
 echo "derleme tamam"
