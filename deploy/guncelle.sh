@@ -2,14 +2,57 @@
 #
 # Rezzerv — canlı sürümü güncelle.
 #
-# `sunucu-kur.sh` ilk kurulum içindir; bu betik yalnızca yeni sürümü alır.
-# .env'e DOKUNMAZ: AUTH_SECRET ve veritabanı parolası orada duruyor, yeniden
-# üretilirse bütün oturumlar düşer ve uygulama veritabanına bağlanamaz.
+# KENDİNİ ARKA PLANA ALIR. Önceki sürüm doğrudan SSH oturumunda koşuyordu ve
+# oturum zaman aşımına uğradığında betik `systemctl restart` ile derleme
+# arasında ölüyordu: servis "deactivating" durumunda asılı kaldı, site bir
+# süre cevap vermedi. Artık `setsid` ile oturumdan koparılıyor; bağlantı
+# düşse de dağıtım sürüyor.
+#
+#   /root/guncelle.sh            → arka planda başlatır, log yolunu yazar
+#   /root/guncelle.sh --takip    → başlatır ve logu izler
+#   /root/guncelle.sh --durum    → süren dağıtım var mı, son satırlar ne
+#
+# `sunucu-kur.sh` ilk kurulum içindir; bu betik yalnızca yeni sürümü alır ve
+# .env'e DOKUNMAZ (AUTH_SECRET ve veritabanı parolası orada duruyor).
 set -euo pipefail
-exec > >(tee -a /root/rezzerv-dagitim.log) 2>&1
-echo "=== $(date) güncelleme ==="
 
 UYGULAMA=/opt/rezzerv
+LOG=/root/rezzerv-dagitim.log
+KILIT=/run/rezzerv-dagitim.pid
+
+# --- durum sorgusu -------------------------------------------------------
+if [ "${1:-}" = "--durum" ]; then
+  if [ -f "$KILIT" ] && kill -0 "$(cat "$KILIT")" 2>/dev/null; then
+    echo "DAĞITIM SÜRÜYOR (pid $(cat "$KILIT"))"
+  else
+    echo "süren dağıtım yok"
+  fi
+  tail -15 "$LOG" 2>/dev/null || true
+  exit 0
+fi
+
+# --- kendini arka plana al ----------------------------------------------
+if [ "${REZZERV_ARKAPLAN:-}" != "1" ]; then
+  if [ -f "$KILIT" ] && kill -0 "$(cat "$KILIT")" 2>/dev/null; then
+    echo "Zaten bir dağıtım sürüyor (pid $(cat "$KILIT")). --durum ile bakın."
+    exit 1
+  fi
+  REZZERV_ARKAPLAN=1 setsid "$0" >/dev/null 2>&1 &
+  echo "Dağıtım arka planda başlatıldı."
+  echo "  izlemek için : tail -f $LOG"
+  echo "  durum        : $0 --durum"
+  if [ "${1:-}" = "--takip" ]; then
+    sleep 2
+    tail -f "$LOG"
+  fi
+  exit 0
+fi
+
+echo $$ > "$KILIT"
+trap 'rm -f "$KILIT"' EXIT
+
+exec >>"$LOG" 2>&1
+echo "=== $(date) güncelleme ==="
 cd "$UYGULAMA"
 
 ONCEKI=$(git rev-parse --short HEAD)
@@ -21,18 +64,73 @@ echo "sürüm: $ONCEKI → $YENI"
 npm ci --no-audit --no-fund
 npx prisma migrate deploy
 npm run build
+echo "derleme tamam"
 
-# Derleme bittikten SONRA yeniden başlatılıyor: derleme başarısız olursa eski
+# Servis tanımları her dağıtımda yeniden yazılıyor: depo ile sunucu
+# ayrışmasın. Değişiklik yoksa systemd zaten yeniden yüklemeyi ucuza kapatır.
+cat > /etc/systemd/system/rezzerv-web.service <<'UNIT'
+[Unit]
+Description=Rezzerv web
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rezzerv
+EnvironmentFile=/opt/rezzerv/.env
+# npm ÜZERİNDEN DEĞİL, doğrudan. systemd SIGTERM'i ExecStart sürecine
+# gönderiyor; arada npm olduğunda sinyal `next start` çocuğuna güvenilir
+# şekilde iletilmiyor ve systemd 90 saniyelik zaman aşımını bekleyip SIGKILL
+# atıyordu. Her dağıtımda gereksiz kesinti demekti.
+ExecStart=/opt/rezzerv/node_modules/.bin/next start -p 3000
+Restart=always
+RestartSec=5
+# Kapanma bütçesi sınırlı: takılan bir süreç dağıtımı 90 saniye bekletmesin.
+TimeoutStopSec=20
+StandardOutput=append:/var/log/rezzerv-web.log
+StandardError=append:/var/log/rezzerv-web.log
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+cat > /etc/systemd/system/rezzerv-worker.service <<'UNIT'
+[Unit]
+Description=Rezzerv arka plan isleri
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rezzerv
+EnvironmentFile=/opt/rezzerv/.env
+# `server-only` düz Node'da hata fırlattığı için --conditions=react-server şart.
+ExecStart=/usr/bin/node --conditions=react-server --import tsx src/worker/run.ts
+Restart=always
+RestartSec=10
+# Worker'ın kendi zarif kapanışı 25 sn; systemd ondan sonra müdahale etsin.
+TimeoutStopSec=35
+StandardOutput=append:/var/log/rezzerv-worker.log
+StandardError=append:/var/log/rezzerv-worker.log
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+
+# Derleme BAŞARILI olduktan sonra yeniden başlatılıyor: derleme düşerse eski
 # sürüm ayakta kalır ve kesinti yaşanmaz.
+BASLANGIC=$(date +%s)
 systemctl restart rezzerv-web rezzerv-worker
-sleep 4
 
-for i in $(seq 1 20); do
-  KOD=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ || echo 000)
+KOD=000
+for _ in $(seq 1 60); do
+  KOD=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/ 2>/dev/null || echo 000)
   [ "$KOD" = "200" ] && break
-  sleep 2
+  sleep 1
 done
-echo "web yanıtı: HTTP ${KOD}"
+echo "kesinti: $(( $(date +%s) - BASLANGIC )) sn · web yanıtı: HTTP ${KOD}"
 echo "servisler: web=$(systemctl is-active rezzerv-web) worker=$(systemctl is-active rezzerv-worker)"
 
 if [ "$KOD" != "200" ]; then
@@ -40,4 +138,4 @@ if [ "$KOD" != "200" ]; then
   tail -20 /var/log/rezzerv-web.log
   exit 1
 fi
-echo "=== GÜNCELLEME BİTTİ ==="
+echo "=== GÜNCELLEME BİTTİ ($ONCEKI → $YENI) ==="

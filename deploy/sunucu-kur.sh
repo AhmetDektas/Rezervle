@@ -99,9 +99,12 @@ Wants=postgresql.service redis-server.service
 Type=simple
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
-ExecStart=/usr/bin/npm start
+# npm ÜZERİNDEN DEĞİL, doğrudan: systemd SIGTERM'i ExecStart sürecine
+# gönderiyor ve arada npm olduğunda sinyal `next start`'a iletilmiyor.
+ExecStart=/opt/rezzerv/node_modules/.bin/next start -p 3000
 Restart=always
 RestartSec=5
+TimeoutStopSec=20
 StandardOutput=append:/var/log/rezzerv-web.log
 StandardError=append:/var/log/rezzerv-web.log
 
@@ -119,9 +122,10 @@ Wants=postgresql.service redis-server.service
 Type=simple
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
-ExecStart=/usr/bin/npm run worker
+ExecStart=/usr/bin/node --conditions=react-server --import tsx src/worker/run.ts
 Restart=always
 RestartSec=10
+TimeoutStopSec=35
 StandardOutput=append:/var/log/rezzerv-worker.log
 StandardError=append:/var/log/rezzerv-worker.log
 
@@ -134,6 +138,15 @@ systemctl enable --now rezzerv-web rezzerv-worker
 echo "servisler kuruldu"
 
 # --- 7) nginx -------------------------------------------------------------
+# `Connection: upgrade` KOŞULLU olmalı; koşulsuz verilirse WebSocket olmayan
+# her istek de yükseltme olarak işaretlenir. Map http bağlamında olmak zorunda.
+cat > /etc/nginx/conf.d/websocket-upgrade.conf <<'MAP'
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+MAP
+
 cat > /etc/nginx/sites-available/rezzerv <<NGINX
 server {
     listen 80;
@@ -148,7 +161,7 @@ server {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection \$connection_upgrade;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
