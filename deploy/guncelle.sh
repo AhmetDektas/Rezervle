@@ -188,4 +188,18 @@ if [ "$KOD" != "200" ]; then
   tail -20 /var/log/rezzerv-web.log
   exit 1
 fi
+# Betiğin kendisi de depodan tazelensin: /root/guncelle.sh elle kopyalanmıştı
+# ve depo sürümü değiştiğinde sessizce geride kalıyordu — servis tanımlarını
+# her dağıtımda yeniden yazma sebebimizin aynısı.
+#
+# Kopyalama EN SONDA, çünkü bash betiği çalışırken parça parça okuyor:
+# koşan dosyanın üzerine yazmak, kalan satırların ortasından kaymasına yol
+# açar. Buradan sonra okunacak satır kalmadığı için güvenli; yeni sürüm bir
+# sonraki çalıştırmada devreye girer.
+if ! cmp -s "$UYGULAMA/deploy/guncelle.sh" /root/guncelle.sh; then
+  cp "$UYGULAMA/deploy/guncelle.sh" /root/guncelle.sh
+  chmod +x /root/guncelle.sh
+  echo "dağıtım betiği depodan tazelendi (bir sonraki çalıştırmada geçerli)"
+fi
+
 echo "=== GÜNCELLEME BİTTİ ($ONCEKI → $YENI) ==="
