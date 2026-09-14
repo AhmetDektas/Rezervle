@@ -50,7 +50,35 @@ function anahtariCoz(base64: string): Uint8Array {
   return cikti;
 }
 
-export function PushToggle({ acikAnahtar }: { acikAnahtar: string | null }) {
+/**
+ * Kitleye göre metin.
+ *
+ * İşletme için push BİRİNCİL kanal: panel kapalıyken haber almanın tek yolu.
+ * Müşteri için EK kanal — SMS ve e-posta zaten gidiyor. Metinlerin bunu doğru
+ * söylemesi gerekiyor: müşteriye "bildirim kapalıysa haberin olmaz" demek
+ * yanlış olurdu, işletmeye "zaten SMS gidiyor" demek de öyle.
+ */
+const METIN = {
+  isletme: {
+    kapaliIpucu: 'Yeni randevu geldiğinde e-posta beklemeden haberiniz olur.',
+    acikIpucu: 'Yeni randevu ve iptaller bu cihaza anında düşüyor.',
+    yedekKanal: 'Randevu bildirimleri e-posta ile gelmeye devam ediyor.',
+  },
+  musteri: {
+    kapaliIpucu: 'Randevu onayı ve hatırlatma bu cihaza da düşsün.',
+    acikIpucu: 'Randevu onayı ve hatırlatmalar bu cihaza da düşüyor.',
+    yedekKanal: 'Randevu bildirimleriniz SMS ve e-posta ile gelmeye devam ediyor.',
+  },
+} as const;
+
+export function PushToggle({
+  acikAnahtar,
+  kitle = 'isletme',
+}: {
+  acikAnahtar: string | null;
+  kitle?: keyof typeof METIN;
+}) {
+  const metin = METIN[kitle];
   const toast = useToast();
   const [durum, setDurum] = React.useState<Durum>('yukleniyor');
   const [pending, setPending] = React.useState(false);
@@ -113,7 +141,7 @@ export function PushToggle({ acikAnahtar }: { acikAnahtar: string | null }) {
         return;
       }
       setDurum('acik');
-      toast.success('Bildirimler açıldı', 'Yeni randevular bu cihaza düşecek.');
+      toast.success('Bildirimler açıldı', metin.acikIpucu);
     } catch {
       toast.error('Bildirim açılamadı', 'Tarayıcı isteği tamamlayamadı.');
       setDurum('kapali');
@@ -147,7 +175,7 @@ export function PushToggle({ acikAnahtar }: { acikAnahtar: string | null }) {
       <Aciklama ikon={<Smartphone size={16} />}>
         iPhone ve iPad&apos;de bildirim, uygulama ana ekrana eklendikten sonra
         çalışıyor. Safari&apos;de <strong>Paylaş → Ana Ekrana Ekle</strong> deyip
-        uygulamayı oradan açın.
+        uygulamayı oradan açın. {metin.yedekKanal}
       </Aciklama>
     );
   }
@@ -155,8 +183,7 @@ export function PushToggle({ acikAnahtar }: { acikAnahtar: string | null }) {
   if (durum === 'destekyok') {
     return (
       <Aciklama ikon={<BellOff size={16} />}>
-        Bu tarayıcı anlık bildirimi desteklemiyor. Randevu bildirimleri e-posta ile
-        gelmeye devam ediyor.
+        Bu tarayıcı anlık bildirimi desteklemiyor. {metin.yedekKanal}
       </Aciklama>
     );
   }
@@ -182,9 +209,7 @@ export function PushToggle({ acikAnahtar }: { acikAnahtar: string | null }) {
         {durum === 'acik' ? 'Bu cihazda kapat' : 'Bu cihaza bildirim gönder'}
       </Button>
       <p className="text-[13px] text-ink-3">
-        {durum === 'acik'
-          ? 'Yeni randevu ve iptaller bu cihaza anında düşüyor.'
-          : 'Yeni randevu geldiğinde e-posta beklemeden haberiniz olur.'}
+        {durum === 'acik' ? metin.acikIpucu : metin.kapaliIpucu}
       </p>
     </div>
   );

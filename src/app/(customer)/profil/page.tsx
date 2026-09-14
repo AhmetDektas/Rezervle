@@ -3,11 +3,13 @@ import Link from 'next/link';
 import { LogOut, LayoutDashboard, Shield, CalendarCheck, Heart, Bell } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { requireUser } from '@/server/auth';
+import { pushAcikAnahtar } from '@/server/push';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardBody } from '@/components/ui/card';
 import { ProfileForm } from '@/components/shell/profile-form';
 import { ConsentPanel } from '@/components/shell/consent-panel';
+import { PushToggle } from '@/components/shell/push-toggle';
 import { ROLE_LABEL } from '@/lib/constants';
 import { consentSummary } from '@/server/consent';
 import { longDate } from '@/lib/format';
@@ -77,6 +79,22 @@ export default async function ProfilePage() {
               emailOptIn: profile?.emailOptIn ?? true,
             }}
           />
+        </CardBody>
+      </Card>
+
+      <Card className="mt-5">
+        <CardHeader
+          title="Anlık bildirim"
+          description="Randevu onayı ve hatırlatma bu cihaza da düşsün."
+        />
+        <CardBody>
+          {/*
+            SMS ve e-postanın YERİNE değil, YANINA. Müşterilerin çoğu
+            uygulamayı ana ekrana eklemiyor ve iOS'ta push ancak eklenmişse
+            çalışıyor; hatırlatmayı yalnızca push'a bırakmak, izni vermemiş
+            müşterinin randevusunu unutması demek olurdu.
+          */}
+          <PushToggle acikAnahtar={pushAcikAnahtar()} kitle="musteri" />
         </CardBody>
       </Card>
 
