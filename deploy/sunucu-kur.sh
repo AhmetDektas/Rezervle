@@ -96,6 +96,13 @@ npm run build
 echo "derleme tamam"
 
 # --- 6) Servisler ---------------------------------------------------------
+# Yetkisiz sistem kullanıcısı: servisler root olarak koşuyordu.
+id -u rezzerv >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin rezzerv
+chown -R rezzerv:rezzerv "$UYGULAMA"
+chmod 600 "$UYGULAMA/.env"
+for L in /var/log/rezzerv-web.log /var/log/rezzerv-worker.log; do
+  touch "$L"; chown rezzerv:rezzerv "$L"
+done
 cat > /etc/systemd/system/rezzerv-web.service <<'UNIT'
 [Unit]
 Description=Rezzerv web
@@ -104,6 +111,8 @@ Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
+User=rezzerv
+Group=rezzerv
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
 # npm ÜZERİNDEN DEĞİL, doğrudan: systemd SIGTERM'i ExecStart sürecine
@@ -127,6 +136,8 @@ Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
+User=rezzerv
+Group=rezzerv
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
 ExecStart=/usr/bin/node --conditions=react-server --import tsx src/worker/run.ts

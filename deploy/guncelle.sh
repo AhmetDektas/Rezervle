@@ -116,6 +116,23 @@ npx prisma migrate deploy
 npm run build
 echo "derleme tamam"
 
+# --- servis kullanıcısı ---------------------------------------------------
+# Servisler root olarak koşuyordu: systemd birimlerinde `User=` yoktu ve
+# sistem servisi varsayılan olarak root çalışır. Uygulamada uzaktan kod
+# çalıştırmaya yol açan bir açık, doğrudan makinenin tamamı demek olurdu.
+#
+# Kullanıcı sistem hesabı (giriş yok, ev dizini yok). Uygulama dizininin ve
+# log dosyalarının sahipliği de ona geçiyor; `.env` yalnızca ona okunur
+# kalıyor (600) çünkü içinde veritabanı parolası ve VAPID özel anahtarı var.
+id -u rezzerv >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin rezzerv
+chown -R rezzerv:rezzerv "$UYGULAMA"
+chown rezzerv:rezzerv "$UYGULAMA/.env"
+chmod 600 "$UYGULAMA/.env"
+for L in /var/log/rezzerv-web.log /var/log/rezzerv-worker.log; do
+  touch "$L"
+  chown rezzerv:rezzerv "$L"
+done
+
 # Servis tanımları her dağıtımda yeniden yazılıyor: depo ile sunucu
 # ayrışmasın. Değişiklik yoksa systemd zaten yeniden yüklemeyi ucuza kapatır.
 cat > /etc/systemd/system/rezzerv-web.service <<'UNIT'
@@ -126,6 +143,8 @@ Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
+User=rezzerv
+Group=rezzerv
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
 # npm ÜZERİNDEN DEĞİL, doğrudan. systemd SIGTERM'i ExecStart sürecine
@@ -152,6 +171,8 @@ Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
+User=rezzerv
+Group=rezzerv
 WorkingDirectory=/opt/rezzerv
 EnvironmentFile=/opt/rezzerv/.env
 # `server-only` düz Node'da hata fırlattığı için --conditions=react-server şart.
