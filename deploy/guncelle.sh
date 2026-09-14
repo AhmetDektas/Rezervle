@@ -213,14 +213,27 @@ fi
 # ve depo sürümü değiştiğinde sessizce geride kalıyordu — servis tanımlarını
 # her dağıtımda yeniden yazma sebebimizin aynısı.
 #
-# Kopyalama EN SONDA, çünkü bash betiği çalışırken parça parça okuyor:
-# koşan dosyanın üzerine yazmak, kalan satırların ortasından kaymasına yol
-# açar. Buradan sonra okunacak satır kalmadığı için güvenli; yeni sürüm bir
-# sonraki çalıştırmada devreye girer.
-if ! cmp -s "$UYGULAMA/deploy/guncelle.sh" /root/guncelle.sh; then
-  cp "$UYGULAMA/deploy/guncelle.sh" /root/guncelle.sh
-  chmod +x /root/guncelle.sh
-  echo "dağıtım betiği depodan tazelendi (bir sonraki çalıştırmada geçerli)"
+# `cp` DEĞİL, `mv`. Bash betiği çalışırken parça parça okuyor ve okuma
+# konumunu dosya içinde tutuyor. `cp` aynı inode'u kesip üzerine yazdığı için
+# koşan betik kalan baytları YENİ dosyadan okur; yeni sürüm daha uzunsa
+# okuma konumu satır ortasına düşer. Canlıda tam olarak bu oldu:
+#
+#   /root/guncelle.sh: line 222: syntax error near unexpected token `('
+#
+# `mv` ise dizin girdisini değiştiriyor, eski inode koşan süreç için olduğu
+# gibi kalıyor. Bu çalıştırma eski betikle bitiyor, yeni sürüm bir sonrakinde
+# devreye giriyor. Sözdizimi önce denetleniyor: bozuk bir betik yerine
+# geçerse sonraki dağıtım hiç açılmaz.
+YENI_BETIK="$UYGULAMA/deploy/guncelle.sh"
+if ! cmp -s "$YENI_BETIK" /root/guncelle.sh; then
+  if bash -n "$YENI_BETIK"; then
+    cp "$YENI_BETIK" /root/guncelle.sh.yeni
+    chmod +x /root/guncelle.sh.yeni
+    mv /root/guncelle.sh.yeni /root/guncelle.sh
+    echo "dağıtım betiği depodan tazelendi (bir sonraki çalıştırmada geçerli)"
+  else
+    echo "!!! depodaki dağıtım betiği sözdizimi hatalı; tazeleme atlandı"
+  fi
 fi
 
 echo "=== GÜNCELLEME BİTTİ ($ONCEKI → $YENI) ==="
