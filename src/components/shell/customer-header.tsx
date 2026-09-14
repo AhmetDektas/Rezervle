@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/lib/constants';
+import { LogoutForm } from '@/components/shell/logout-form';
 
 export type HeaderUser = { id: string; name: string; role: Role; avatarSeed: string } | null;
 
@@ -141,7 +142,7 @@ export function CustomerHeader({
                       <MenuLink href="/yonetim" icon={Shield}>Yönetim</MenuLink>
                     ) : null}
                     <div className="my-1 h-px bg-line" />
-                    <form action="/cikis" method="post">
+                    <LogoutForm>
                       <button
                         type="submit"
                         role="menuitem"
@@ -150,7 +151,7 @@ export function CustomerHeader({
                         <LogOut size={16} aria-hidden />
                         Çıkış yap
                       </button>
-                    </form>
+                    </LogoutForm>
                   </div>
                 ) : null}
               </div>

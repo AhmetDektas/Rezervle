@@ -9,6 +9,7 @@ import {
 import { Logo } from '@/components/brand/logo';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { LogoutForm } from '@/components/shell/logout-form';
 
 const NAV = [
   { href: '/yonetim', label: 'Genel bakış', icon: Shield, exact: true },
@@ -50,7 +51,7 @@ export function AdminShell({
               <ExternalLink size={15} aria-hidden />
               Siteye dön
             </Link>
-            <form action="/cikis" method="post">
+            <LogoutForm>
               <button
                 type="submit"
                 className="flex h-10 items-center gap-1.5 rounded-xl px-3 text-[13.5px] font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
@@ -58,7 +59,7 @@ export function AdminShell({
                 <LogOut size={15} aria-hidden />
                 Çıkış
               </button>
-            </form>
+            </LogoutForm>
             <Avatar name={user.name} size={30} hue={Number(user.avatarSeed) * 37} />
           </div>
         </div>

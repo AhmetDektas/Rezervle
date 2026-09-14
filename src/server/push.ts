@@ -3,6 +3,7 @@ import webpush, { WebPushError } from 'web-push';
 import { prisma } from '@/lib/db';
 import { logSideEffectFailure } from './log';
 import { appUrl } from '@/lib/constants';
+import { pushHedefiGuvenli } from '@/lib/push-endpoint';
 
 /**
  * Web Push gönderimi (VAPID).
@@ -32,6 +33,9 @@ const SUBJECT = process.env['VAPID_SUBJECT'] ?? appUrl();
 
 /** Tek bir push isteğinin üst sınırı (bkz. pushGonder içindeki gerekçe). */
 const PUSH_TIMEOUT_MS = 5_000;
+
+/** Kullanıcı başına abone cihaz sayısı üst sınırı (bkz. pushAbone). */
+const CIHAZ_SINIRI = 10;
 
 let hazir = false;
 
@@ -70,12 +74,34 @@ export type PushYuk = {
  * başarı şartı değil. Bir cihaz düşerse diğerleri denenmeye devam eder.
  */
 export async function pushGonder(userId: string, yuk: PushYuk): Promise<number> {
+  try {
+    return await gonder(userId, yuk);
+  } catch (err) {
+    // HİÇBİR KOŞULDA FIRLATMAZ. `notifyUser` bunu bekliyor ve `notifyUser`
+    // randevu oluşturma akışının içinde: abonelik sorgusu ya da VAPID kurulumu
+    // patladığında müşteri "Beklenmeyen bir hata oluştu" görüp randevusunun
+    // oluşmadığını sanırdı — oysa randevu çoktan yazılmış olurdu.
+    //
+    // Önceden yalnızca tek tek gönderimler korumalıydı; sorgu ve kurulum
+    // try'ın DIŞINDAYDI.
+    logSideEffectFailure({ action: 'pushGonder', userId }, err);
+    return 0;
+  }
+}
+
+async function gonder(userId: string, yuk: PushYuk): Promise<number> {
   if (!pushYapilandirildi()) return 0;
 
-  const abonelikler = await prisma.pushSubscription.findMany({
+  const kayitlilar = await prisma.pushSubscription.findMany({
     where: { userId },
     select: { id: true, endpoint: true, p256dh: true, auth: true },
   });
+  if (kayitlilar.length === 0) return 0;
+
+  // Kayıt anındaki doğrulamaya ek olarak GÖNDERİM anında da süzülüyor: izin
+  // listesi daraltıldığında ya da doğrulama öncesinde yazılmış satırlar
+  // kaldığında sunucu yine de yanlış hedefe istek atmasın.
+  const abonelikler = kayitlilar.filter((a) => pushHedefiGuvenli(a.endpoint));
   if (abonelikler.length === 0) return 0;
 
   hazirla();
@@ -148,6 +174,22 @@ export async function pushAbone(
     create: { endpoint: abone.endpoint, ...veri },
     update: veri,
   });
+
+  // CİHAZ SINIRI. Abonelik sayısı sınırsızdı: her tarayıcı profili, her gizli
+  // pencere yeni bir uç nokta üretiyor ve hiçbiri kendiliğinden silinmiyor.
+  // Sınırsız satır hem her bildirimde artan gönderim maliyeti hem de kolay
+  // şişirilebilen bir tablo demekti. En eski görülen kayıt düşüyor.
+  const fazlasi = await prisma.pushSubscription.findMany({
+    where: { userId },
+    orderBy: { lastSeenAt: 'desc' },
+    select: { id: true },
+    skip: CIHAZ_SINIRI,
+  });
+  if (fazlasi.length > 0) {
+    await prisma.pushSubscription.deleteMany({
+      where: { id: { in: fazlasi.map((f) => f.id) } },
+    });
+  }
 }
 
 /**

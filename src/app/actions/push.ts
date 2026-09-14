@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction } from '@/server/auth';
 import { pushAbone, pushAbonelikBitir, pushYapilandirildi } from '@/server/push';
+import { pushHedefiDogrula } from '@/lib/push-endpoint';
 
 /**
  * Tarayıcı push aboneliğini kaydeder/kaldırır.
@@ -30,6 +31,12 @@ export async function pushAboneOlAction(girdi: unknown): Promise<ActionResult<nu
 
     const parsed = aboneSemasi.safeParse(girdi);
     if (!parsed.success) throw new DomainError('Abonelik bilgisi geçersiz.', 'VALIDATION');
+
+    // URL BİÇİMİ YETMEZ. Uç noktayı tarayıcı veriyor ve sunucu o adrese kendi
+    // ağından istek atacak: `https://127.0.0.1:8443/admin` de geçerli bir URL.
+    // Hedefin gerçekten bir push servisi olduğu burada doğrulanıyor.
+    const hedef = pushHedefiDogrula(parsed.data.endpoint);
+    if (!hedef.ok) throw new DomainError(hedef.sebep, 'VALIDATION');
 
     await pushAbone(user.id, parsed.data);
     return null;

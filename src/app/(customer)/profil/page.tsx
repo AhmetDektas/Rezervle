@@ -14,6 +14,7 @@ import { ROLE_LABEL } from '@/lib/constants';
 import { consentSummary } from '@/server/consent';
 import { longDate } from '@/lib/format';
 import { utcToDateStr } from '@/lib/time';
+import { LogoutForm } from '@/components/shell/logout-form';
 
 export const metadata: Metadata = { title: 'Profilim' };
 export const dynamic = 'force-dynamic';
@@ -112,12 +113,12 @@ export default async function ProfilePage() {
         </CardBody>
       </Card>
 
-      <form action="/cikis" method="post" className="mt-5">
+      <LogoutForm className="mt-5">
         <Button type="submit" variant="dangerGhost" full>
           <LogOut size={16} aria-hidden />
           Çıkış yap
         </Button>
-      </form>
+      </LogoutForm>
     </div>
   );
 }

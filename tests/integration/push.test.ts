@@ -51,7 +51,8 @@ const { pushAbone, pushAbonelikBitir, pushGonder, pushCihazSayisi } = await impo
 
 let a: Fixture;
 
-const UC_NOKTA = 'https://push.example.com/abone/aaa';
+// İzin listesindeki gerçek bir push servisi; uydurma host artık reddediliyor.
+const UC_NOKTA = 'https://fcm.googleapis.com/fcm/send/abone-aaa';
 
 beforeEach(async () => {
   await resetDatabase();
@@ -150,5 +151,47 @@ describe('gönderim', () => {
 
     await expect(pushGonder(a.owner.id, { title: 'x', body: 'y' })).resolves.toBe(0);
     expect(await pushCihazSayisi(a.owner.id)).toBe(1);
+  });
+});
+
+describe('güvenlik', () => {
+  it('izin listesi dışındaki kayıtlı uç noktaya GÖNDERİM YAPILMAZ', async () => {
+    // Doğrulama eklenmeden önce yazılmış ya da liste daraltıldığında geçersiz
+    // kalan satırlar: sunucu yine de o adrese istek atmamalı. Bu yüzden
+    // doğrudan veritabanına yazıyoruz — pushAbone bunu zaten reddederdi.
+    await prisma.pushSubscription.create({
+      data: {
+        userId: a.owner.id,
+        endpoint: 'https://127.0.0.1:8443/private',
+        p256dh: 'k',
+        auth: 's',
+      },
+    });
+
+    const sayi = await pushGonder(a.owner.id, { title: 'x', body: 'y' });
+
+    expect(sayi).toBe(0);
+    expect(gonderilenler).toHaveLength(0);
+  });
+
+  it('cihaz sayısı sınırlanıyor, en eskiler düşüyor', async () => {
+    for (let i = 0; i < 12; i += 1) {
+      await pushAbone(a.owner.id, {
+        endpoint: `https://fcm.googleapis.com/fcm/send/cihaz-${i}`,
+        p256dh: 'k',
+        auth: 's',
+      });
+    }
+
+    expect(await pushCihazSayisi(a.owner.id)).toBe(10);
+
+    // Düşenler EN ESKİ görülenler olmalı; son eklenen mutlaka durmalı.
+    const kalan = await prisma.pushSubscription.findMany({
+      where: { userId: a.owner.id },
+      select: { endpoint: true },
+    });
+    expect(kalan.map((k) => k.endpoint)).toContain(
+      'https://fcm.googleapis.com/fcm/send/cihaz-11',
+    );
   });
 });

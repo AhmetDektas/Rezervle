@@ -99,7 +99,31 @@ export function PushToggle({
       if (!kayit) return void (!iptal && setDurum('destekyok'));
 
       const abone = await kayit.pushManager.getSubscription();
-      if (!iptal) setDurum(abone ? 'acik' : 'kapali');
+      if (!abone) return void (!iptal && setDurum('kapali'));
+
+      // ORTAK CİHAZ: aboneliği HER AÇILIŞTA mevcut kullanıcıya yeniden bağla.
+      //
+      // Önceden yalnızca tarayıcıdaki aboneliğe bakılıp "açık" deniyordu.
+      // A hesabı bildirim açıp çıkış yapar, aynı tarayıcıda B giriş yaparsa
+      // uç nokta sunucuda hâlâ A'ya bağlı kalıyordu: B, A'nın randevu
+      // bildirimlerini görüyor, kendi bildirimlerini alamıyordu.
+      //
+      // `pushAbone` uç nokta tekilliği üzerinden sahibi güncellediği için
+      // yeniden göndermek bağı düzeltiyor. Sunucu reddederse (ör. artık
+      // desteklenmeyen bir push servisi) tarayıcı aboneliği de bırakılıyor,
+      // yoksa kullanıcı çalıştığını sanırdı.
+      const json = abone.toJSON();
+      const eslestir = await pushAboneOlAction({
+        endpoint: abone.endpoint,
+        p256dh: json.keys?.['p256dh'] ?? '',
+        auth: json.keys?.['auth'] ?? '',
+        userAgent: navigator.userAgent,
+      });
+      if (!eslestir.ok) {
+        await abone.unsubscribe().catch(() => {});
+        return void (!iptal && setDurum('kapali'));
+      }
+      if (!iptal) setDurum('acik');
     })().catch(() => {
       if (!iptal) setDurum('destekyok');
     });

@@ -28,6 +28,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { Role } from '@/lib/constants';
 import { trialDaysLeft } from '@/lib/plans';
+import { LogoutForm } from '@/components/shell/logout-form';
 
 export type PanelBusiness = {
   id: string;
@@ -179,7 +180,7 @@ export function PanelShell({
               <ExternalLink size={16} aria-hidden />
               Müşteri uygulaması
             </Link>
-            <form action="/cikis" method="post">
+            <LogoutForm>
               <button
                 type="submit"
                 className="flex min-h-[42px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13.5px] text-danger hover:bg-danger-soft"
@@ -187,7 +188,7 @@ export function PanelShell({
                 <LogOut size={16} aria-hidden />
                 Çıkış yap
               </button>
-            </form>
+            </LogoutForm>
           </div>
         </aside>
 
@@ -219,7 +220,7 @@ export function PanelShell({
                   <ExternalLink size={16} aria-hidden />
                   Müşteri uygulaması
                 </Link>
-                <form action="/cikis" method="post">
+                <LogoutForm>
                   <button
                     type="submit"
                     className="flex min-h-[42px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13.5px] text-danger"
@@ -227,7 +228,7 @@ export function PanelShell({
                     <LogOut size={16} aria-hidden />
                     Çıkış yap
                   </button>
-                </form>
+                </LogoutForm>
               </div>
             </div>
           </div>
