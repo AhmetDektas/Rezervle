@@ -331,6 +331,21 @@ model TimeOff {
 
 // --- Rezervasyonlar ---------------------------------------------------
 
+/// ÇAKIŞMA KORUMASI VERİTABANINDA.
+///
+/// `slotKey` yalnızca aynı BAŞLANGIÇ dakikasını engelliyor; 10:00-11:00 ile
+/// 10:30-11:30 farklı anahtar üretir. Gerçek koruma, Prisma'nın modelleyemediği
+/// bir PostgreSQL dışlama kısıtı:
+///
+///   Reservation_personel_cakisma
+///   EXCLUDE USING gist (staffId =, date =, int4range(startMin, blockEnd) &&)
+///   WHERE (status <> 'CANCELLED')
+///
+/// Tanımı `prisma/migrations/20260915120000_cakisma_kisiti` içinde.
+///
+/// DİKKAT: `prisma db push` bu kısıtı KURMAZ (yalnızca bu dosyadan üretir).
+/// Test veritabanı bu yüzden `migrate reset` ile kuruluyor — bkz.
+/// tests/global-setup.ts.
 model Reservation {
   id          String      @id @default(cuid())
   code        String      @unique

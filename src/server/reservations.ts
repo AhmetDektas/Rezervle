@@ -150,6 +150,26 @@ export async function quoteBooking(args: {
  * Slot uygunluğu yazma anında yeniden hesaplanır; son savunma hattı olarak
  * `slotKey` benzersiz kısıtı çifte kaydı veritabanı düzeyinde engeller.
  */
+/**
+ * Yazma anında çakışma yakalandı mı?
+ *
+ * İKİ AYRI KISIT var ve ikisi de aynı kullanıcı hatasını temsil ediyor:
+ *
+ *   - `slotKey` benzersizliği: aynı personel + gün + BAŞLANGIÇ dakikası.
+ *   - `Reservation_personel_cakisma` dışlama kısıtı: aynı personel + gün +
+ *     ÖRTÜŞEN [startMin, blockEnd) aralığı. 10:00-11:00 ile 10:30-11:30'u
+ *     ayıran tek şey bu; slotKey ikisini farklı görüyordu.
+ *
+ * Prisma dışlama kısıtını tanımıyor: hata "bilinmeyen" olarak geliyor ve
+ * yalnızca metninden ayırt edilebiliyor. Hem kısıt adına hem PostgreSQL'in
+ * 23P01 koduna bakılıyor — biri mesajdan düşerse diğeri yakalasın.
+ */
+function cakismaHatasiMi(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return true;
+  const mesaj = err instanceof Error ? err.message : '';
+  return mesaj.includes('Reservation_personel_cakisma') || mesaj.includes('23P01');
+}
+
 export async function createReservation(input: CreateReservationInput) {
   const clock = input.now ?? new Date();
   if (input.serviceIds.length === 0) {
@@ -364,8 +384,9 @@ export async function createReservation(input: CreateReservationInput) {
       return reservation;
     })
     .catch((err: unknown) => {
-      // slotKey benzersiz kısıtı: aynı anda gelen ikinci istek buraya düşer.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      // Aynı anda gelen ikinci istek buraya düşer: transaction içindeki
+      // kontrol yarışı kaybedebilir, son söz veritabanının kısıtlarında.
+      if (cakismaHatasiMi(err)) {
         throw new DomainError('Bu saat az önce doldu.', 'SLOT_TAKEN');
       }
       throw err;
@@ -771,7 +792,7 @@ export async function rescheduleReservation(args: {
       return res;
     })
     .catch((err: unknown) => {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (cakismaHatasiMi(err)) {
         throw new DomainError('Bu saat az önce doldu.', 'SLOT_TAKEN');
       }
       throw err;
