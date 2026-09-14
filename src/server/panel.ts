@@ -231,8 +231,13 @@ export async function settlementStats(
   const stats: SettlementStats = { held: 0, released: 0, refunded: 0, commission: 0, captured: 0 };
   for (const p of rows) {
     stats.captured += p.capturedAmount;
-    if (p.settlementStatus === 'HELD') stats.held += p.netAmount;
-    else if (p.settlementStatus === 'RELEASED') {
+    // Bekleyen mutabakatlar da BLOKE sayılıyor: sağlayıcı teyit etmeden para
+    // hareket etmiyor. "İade edildi" ya da "hak edildi" diye saymak, henüz
+    // gerçekleşmemiş bir para hareketini rapora yazmak olurdu.
+    if (p.settlementStatus === 'HELD' || p.settlementStatus.endsWith('_PENDING')) {
+      stats.held += p.netAmount;
+    }
+    if (p.settlementStatus === 'RELEASED') {
       stats.released += p.netAmount;
       stats.commission += p.commissionAmount;
     } else if (p.settlementStatus === 'REFUNDED') stats.refunded += p.capturedAmount;

@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db';
 import { run, DomainError, type ActionResult } from '@/server/errors';
 import { requireUserAction, assertBusinessAccess, hashPassword } from '@/server/auth';
 import { auditReservation, type ReservationIssue } from '@/server/audit';
+import { subeKotasiniAyir } from '@/server/entitlements';
+import { minFiyatiTazele } from '@/server/pricing';
 import {
   assertBranchBelongs,
   updateServiceScoped,
@@ -86,29 +88,61 @@ export async function panelCreateReservationAction(
     const user = await requireUserAction();
     await assertBusinessAccess(user, parsed.data.businessId);
 
-    // Telefon numarası müşteri kimliğidir: varsa eşleşir, yoksa hesap açılır.
+    // MÜŞTERİ EŞLEŞTİRME KİMLİK KANITI DEĞİLDİR.
+    //
+    // Önceden panelde girilen telefon BÜTÜN kullanıcılar arasında aranıyordu
+    // (rol ayrımı bile yoktu), telefon tutmazsa girilen e-posta mevcut bir
+    // hesaba bağlanıyordu. Yani bir işletme, bildiği bir e-posta için randevu
+    // oluşturup o hesabı kendi müşteri listesine ekleyebiliyordu; liste de
+    // hesabın gerçek adını, telefonunu ve e-postasını gösteriyor. Müşterinin
+    // hiçbir onayı olmadan kişisel veri açılması demekti.
+    //
+    // Artık iki kural var:
+    //   1. Telefon eşleşmesi YALNIZCA bu işletmenin mevcut müşterileri
+    //      içinde aranıyor. Tezgâhta telefonunu söyleyen düzenli müşteri
+    //      bulunuyor; işletmeyle hiç ilişkisi olmayan bir hesap bulunmuyor.
+    //   2. Girilen e-posta BAŞKASINA AİTSE hiç bağlanmıyor; o randevu
+    //      işletmeye özel bir misafir kaydına yazılıyor.
+    //
+    // Kalan sınır: müşterinin kendi hesabını işletmeye bağlamak onay
+    // gerektirmeli (davet/OTP). O akış henüz yok; buradaki kurallar yalnızca
+    // onaysız BAĞLAMAYI engelliyor.
     const phone = parsed.data.customerPhone;
-    let customer = await prisma.user.findFirst({ where: { phone }, select: { id: true } });
+    let customer = await prisma.user.findFirst({
+      where: {
+        phone,
+        role: 'CUSTOMER',
+        reservations: { some: { businessId: parsed.data.businessId } },
+      },
+      select: { id: true },
+    });
+
     if (!customer) {
-      const email =
-        parsed.data.customerEmail ||
-        `${phone}@misafir.rezzerv.local`;
-      const existingEmail = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-      customer = existingEmail
-        ? existingEmail
-        : await prisma.user.create({
-            data: {
-              email,
-              name: parsed.data.customerName,
-              phone,
-              // Misafir kayıt: rastgele parola, kullanıcı sonradan sıfırlar.
-              passwordHash: await hashPassword(`gecici-${Math.random().toString(36).slice(2)}9A`),
-              role: 'CUSTOMER',
-              avatarSeed: String(Math.floor(Math.random() * 24)),
-              customerProfile: { create: {} },
-            },
-            select: { id: true },
-          });
+      const girilen = parsed.data.customerEmail?.trim().toLowerCase() || null;
+      const sahipli = girilen
+        ? await prisma.user.findUnique({ where: { email: girilen }, select: { id: true } })
+        : null;
+      // Sahipli e-postaya dokunulmuyor. Serbestse kullanılabilir: kimsenin
+      // hesabı değil ve misafir müşteriye e-posta bildirimi gitmesini sağlar.
+      const email = girilen && !sahipli
+        ? girilen
+        : `${phone}.${parsed.data.businessId}@misafir.rezzerv.local`;
+
+      customer = await prisma.user.upsert({
+        where: { email },
+        update: {},
+        create: {
+          email,
+          name: parsed.data.customerName,
+          phone,
+          // Misafir kayıt: rastgele parola, kullanıcı sonradan sıfırlar.
+          passwordHash: await hashPassword(`gecici-${Math.random().toString(36).slice(2)}9A`),
+          role: 'CUSTOMER',
+          avatarSeed: String(Math.floor(Math.random() * 24)),
+          customerProfile: { create: {} },
+        },
+        select: { id: true },
+      });
     }
 
     const reservation = await createReservation({
@@ -217,6 +251,9 @@ export async function saveServiceAction(
         data: valid.map((s) => ({ staffId: s.id, serviceId })),
       });
     }
+    // Keşfet'teki fiyat sıralaması bu değerden okunuyor; hizmet fiyatı
+    // değiştiyse sıralamanın da değişmesi gerekiyor.
+    await minFiyatiTazele(businessId);
     return { id: serviceId };
   }, { action: 'saveServiceAction' });
   if (result.ok) touch(slug);
@@ -238,6 +275,8 @@ export async function toggleServiceAction(
     if (!service) throw new DomainError('Hizmet bulunamadı.', 'NOT_FOUND');
     await assertBusinessAccess(user, service.businessId);
     await prisma.service.update({ where: { id: serviceId }, data: { active } });
+    // Pasife alınan hizmet en ucuzuysa işletmenin başlangıç fiyatı değişir.
+    await minFiyatiTazele(service.businessId);
     return undefined;
   }, { action: 'toggleServiceAction' });
   if (result.ok) touch(slug);
@@ -354,6 +393,16 @@ export async function saveHoursAction(
     if (!businessId) throw new DomainError('Kayıt bulunamadı.', 'NOT_FOUND');
     await assertBusinessAccess(user, businessId);
 
+    // ÖNCE BÜTÜN GÜNLER DOĞRULANIR, SONRA YAZILIR.
+    //
+    // Eskiden döngü gün gün doğrulayıp gün gün yazıyordu: dördüncü günde
+    // "bu saatlerin dışında randevu var" hatası alındığında ilk üç gün ZATEN
+    // KAYDEDİLMİŞ oluyordu. İşletme hata mesajını görüp hiçbir şey olmadığını
+    // sanıyor, oysa haftanın yarısı değişmiş oluyordu.
+    if (new Set(parsed.data.days.map((d) => d.weekday)).size !== parsed.data.days.length) {
+      throw new DomainError('Aynı gün birden fazla kez gönderilemez.', 'BAD_RANGE');
+    }
+
     for (const day of parsed.data.days) {
       if (!day.closed && day.endMin <= day.startMin) {
         throw new DomainError('Kapanış saati açılıştan sonra olmalı.', 'BAD_RANGE');
@@ -369,32 +418,36 @@ export async function saveHoursAction(
           'HAS_RESERVATIONS',
         );
       }
-      if (target === 'branch') {
-        await prisma.branchHour.upsert({
-          where: { branchId_weekday: { branchId: parsed.data.targetId, weekday: day.weekday } },
-          update: { openMin: day.startMin, closeMin: day.endMin, closed: day.closed },
-          create: {
-            branchId: parsed.data.targetId,
-            weekday: day.weekday,
-            openMin: day.startMin,
-            closeMin: day.endMin,
-            closed: day.closed,
-          },
-        });
-      } else {
-        await prisma.staffHour.upsert({
-          where: { staffId_weekday: { staffId: parsed.data.targetId, weekday: day.weekday } },
-          update: { startMin: day.startMin, endMin: day.endMin, closed: day.closed },
-          create: {
-            staffId: parsed.data.targetId,
-            weekday: day.weekday,
-            startMin: day.startMin,
-            endMin: day.endMin,
-            closed: day.closed,
-          },
-        });
-      }
     }
+
+    // Yazma tek transaction: ya haftanın tamamı geçerli olur ya da hiçbiri.
+    await prisma.$transaction(
+      parsed.data.days.map((day) =>
+        target === 'branch'
+          ? prisma.branchHour.upsert({
+              where: { branchId_weekday: { branchId: parsed.data.targetId, weekday: day.weekday } },
+              update: { openMin: day.startMin, closeMin: day.endMin, closed: day.closed },
+              create: {
+                branchId: parsed.data.targetId,
+                weekday: day.weekday,
+                openMin: day.startMin,
+                closeMin: day.endMin,
+                closed: day.closed,
+              },
+            })
+          : prisma.staffHour.upsert({
+              where: { staffId_weekday: { staffId: parsed.data.targetId, weekday: day.weekday } },
+              update: { startMin: day.startMin, endMin: day.endMin, closed: day.closed },
+              create: {
+                staffId: parsed.data.targetId,
+                weekday: day.weekday,
+                startMin: day.startMin,
+                endMin: day.endMin,
+                closed: day.closed,
+              },
+            }),
+      ),
+    );
     return undefined;
   }, { action: 'saveHoursAction' });
   if (result.ok) touch(slug);
@@ -486,20 +539,25 @@ export async function saveBranchAction(
       await updateBranchScoped(businessId, id, { ...data, phone: phone || null });
       return { id };
     }
-    const branch = await prisma.branch.create({
-      data: {
-        ...data,
-        phone: phone || null,
-        businessId,
-        hours: {
-          create: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-            weekday,
-            closed: weekday === 0,
-            openMin: weekday === 6 ? 600 : 540,
-            closeMin: weekday === 6 ? 1020 : 1140,
-          })),
+    // Kota kontrolü ve yazma AYNI transaction'da: ayrı yapılsaydı iki
+    // eşzamanlı istek sınırı birlikte aşabilirdi (bkz. entitlements.ts).
+    const branch = await prisma.$transaction(async (tx) => {
+      await subeKotasiniAyir(tx, businessId);
+      return tx.branch.create({
+        data: {
+          ...data,
+          phone: phone || null,
+          businessId,
+          hours: {
+            create: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+              weekday,
+              closed: weekday === 0,
+              openMin: weekday === 6 ? 600 : 540,
+              closeMin: weekday === 6 ? 1020 : 1140,
+            })),
+          },
         },
-      },
+      });
     });
     return { id: branch.id };
   }, { action: 'saveBranchAction' });

@@ -2,6 +2,7 @@ import 'server-only';
 import { releaseExpiredJob } from './release-expired';
 import { reminderJob } from './reminders';
 import { subscriptionCycleJob } from './subscription-cycle';
+import { settlementRetryJob } from './settlement-retry';
 
 /**
  * İş kayıt noktası.
@@ -10,7 +11,7 @@ import { subscriptionCycleJob } from './subscription-cycle';
  * edilirse. Bu dosya olmadan worker "hiç iş tanımlı değil" diye açılmadan
  * kapanırdı — sessiz değil, ama yine de kolayca gözden kaçacak bir bağ.
  */
-export { releaseExpiredJob, reminderJob, subscriptionCycleJob };
+export { releaseExpiredJob, reminderJob, subscriptionCycleJob, settlementRetryJob };
 
 /**
  * Belirli aralıkla kendiliğinden çalışan işler.
@@ -34,4 +35,9 @@ export async function scheduleRecurring(): Promise<void> {
   // ama gereksiz. Daha sık koşması zararsız: fatura üretimi dönem anahtarıyla
   // idempotent, deneme uyarısı damgayla tek sefer.
   await subscriptionCycleJob.schedule(6 * 60 * 60_000, {});
+
+  // Takılı kalmış iade/hak ediş işlemleri. İki dakikada bir: müşterinin
+  // iadesini bekletmemek için sık, sağlayıcıyı boşuna yormamak için de
+  // yalnızca bekleyen kayıt varsa iş yapıyor.
+  await settlementRetryJob.schedule(2 * 60_000, {});
 }

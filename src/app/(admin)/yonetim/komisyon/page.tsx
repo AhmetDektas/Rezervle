@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { money, percent, longDate } from '@/lib/format';
 import { today, addDays, startOfMonth } from '@/lib/time';
 import { cn } from '@/lib/utils';
+import { BLOKE_DURUMLAR } from '@/server/settlement';
 
 export const metadata: Metadata = { title: 'Komisyon geliri' };
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,9 @@ export default async function CommissionPage({ searchParams }: { searchParams: S
   const [report, held] = await Promise.all([
     platformCommission(from, t),
     prisma.payment.aggregate({
-      where: { settlementStatus: 'HELD' },
+      // Bekleyen mutabakatlar da bloke: sağlayıcı teyit etmeden para hareket
+      // etmiyor, dolayısıyla hâlâ kuruluşta duruyor (bkz. server/settlement.ts).
+      where: { settlementStatus: { in: [...BLOKE_DURUMLAR] } },
       _sum: { netAmount: true, commissionAmount: true },
       _count: { _all: true },
     }),

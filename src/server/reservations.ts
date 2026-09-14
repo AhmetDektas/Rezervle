@@ -20,6 +20,7 @@ import { getDayAvailability, ONLINE_LEAD_MIN, STAFF_LEAD_MIN } from './schedule'
 import { depositPolicyFor } from './deposit-policy';
 import { notifyBusiness, notifyUser } from './notifications';
 import { paymentProvider } from './providers';
+import { BEKLEYEN, mutabakatiTamamla } from './settlement';
 import { depositFor, refundOnCancel, type DepositPolicy } from '@/lib/deposit';
 import { splitPayment } from '@/lib/commission';
 import { bookingTotals, orderServices, serviceLabel } from '@/lib/services';
@@ -62,7 +63,7 @@ async function resolvePromotion(
   code: string | undefined,
   businessId: string,
   price: number,
-): Promise<{ id: string; discount: number } | null> {
+): Promise<{ id: string; discount: number; maxUses: number } | null> {
   if (!code) return null;
   const promo = await prisma.promotion.findUnique({ where: { code: code.trim().toUpperCase() } });
   if (!promo || !promo.active) throw new DomainError('Kampanya kodu geçersiz.', 'PROMO_INVALID');
@@ -83,7 +84,7 @@ async function resolvePromotion(
     );
   }
   const raw = promo.kind === 'PERCENT' ? Math.round((price * promo.value) / 100) : promo.value;
-  return { id: promo.id, discount: Math.min(raw, price) };
+  return { id: promo.id, discount: Math.min(raw, price), maxUses: promo.maxUses };
 }
 
 export type BookingQuote = {
@@ -112,7 +113,8 @@ export async function quoteBooking(args: {
       where: { id: args.businessId },
       select: {
         id: true,
-        depositAddon: true,
+        planKey: true,
+      depositAddon: true,
         depositEnabled: true,
         depositKind: true,
         depositValue: true,
@@ -196,7 +198,8 @@ export async function createReservation(input: CreateReservationInput) {
         name: true,
         slug: true,
         status: true,
-        depositAddon: true,
+        planKey: true,
+      depositAddon: true,
         depositEnabled: true,
         depositKind: true,
         depositValue: true,
@@ -340,7 +343,24 @@ export async function createReservation(input: CreateReservationInput) {
           promotionId: promo?.id ?? null,
           extra: input.extra ? JSON.stringify(input.extra) : null,
           depositAmount: deposit,
-          depositStatus: 'NONE',
+          // KAPORA BEKLENİYORSA SON TARİH BURADA YAZILIYOR — charge()'dan
+          // SONRA değil.
+          //
+          // Önceden kayıt `NONE` ve son tarihi boş olarak açılıyor, bu iki
+          // alan ancak sağlayıcı cevap verdikten sonra yazılıyordu. Sağlayıcı
+          // zaman aşımına uğrarsa ya da süreç tam orada kapanırsa kayıt
+          // `NONE` + son tarihsiz kalıyordu; temizleme işi yalnızca `PENDING`
+          // tarayıp bunu hiç görmüyordu ve saat SÜRESİZ tutuluyordu.
+          //
+          // Ayrıca çok hızlı dönen bir webhook'un `PAID` yazmasının ardından
+          // gecikmeli `PENDING` yazılması da mümkündü; artık `PENDING` en
+          // baştan kurulduğu için o yarış da yok.
+          depositStatus: deposit > 0 ? 'PENDING' : 'NONE',
+          paymentDeadline:
+            deposit > 0 ? new Date(clock.getTime() + PAYMENT_DEADLINE_MIN * 60_000) : null,
+          // İade süresi de tutar gibi DONDURULUYOR: işletme ayarı sonradan
+          // değişse bile bu randevunun şartı değişmiyor.
+          depositRefundHours: policy.refundHours,
           slotKey: slotKeyOf(staffId, input.date, input.startMin),
           // Kalemler randevuyla AYNI işlemde yazılır: hizmet listesi olmayan
           // bir randevu kaydı hiçbir an var olmamalı.
@@ -378,7 +398,27 @@ export async function createReservation(input: CreateReservationInput) {
       });
 
       if (promo) {
-        await tx.promotion.update({ where: { id: promo.id }, data: { usedCount: { increment: 1 } } });
+        // KULLANIM HAKKI ATOMİK AYRILIYOR.
+        //
+        // Limit kontrolü `resolvePromotion` içinde, transaction'ın DIŞINDA
+        // yapılıyor; sayaç ise burada koşulsuz artırılıyordu. Son bir hakkı
+        // aynı anda okuyan iki istek ikisi de "hak var" deyip ikisi de
+        // artırıyordu — 10 kullanımlık kampanya 11 kez kullanılabiliyordu.
+        //
+        // `updateMany` + koşul, kontrolü ve artışı TEK ifadeye indiriyor:
+        // PostgreSQL satırı güncellerken kilitliyor, ikinci istek güncel
+        // sayacı görüyor ve koşul tutmuyorsa hiçbir satır etkilenmiyor.
+        const ayrildi = await tx.promotion.updateMany({
+          where: {
+            id: promo.id,
+            active: true,
+            OR: [{ maxUses: 0 }, { usedCount: { lt: promo.maxUses } }],
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (ayrildi.count === 0) {
+          throw new DomainError('Kampanya kullanım limitine ulaşmış.', 'PROMO_LIMIT');
+        }
       }
 
       return reservation;
@@ -462,18 +502,14 @@ export async function createReservation(input: CreateReservationInput) {
       ]);
       created.depositStatus = 'PAID';
     } else {
-      // 3DS bekleniyor. Saat şimdilik ayrılmış durumda ama süresiz değil.
-      const deadline = new Date(clock.getTime() + PAYMENT_DEADLINE_MIN * 60_000);
-      await prisma.$transaction([
-        prisma.reservation.update({
-          where: { id: created.id },
-          data: { depositStatus: 'PENDING', paymentDeadline: deadline },
-        }),
-        prisma.payment.update({
-          where: { reservationId: created.id },
-          data: { providerRef: charge.providerRef, status: 'PENDING', ...komisyon },
-        }),
-      ]);
+      // 3DS bekleniyor. Randevunun durumu ve son tarihi ZATEN kuruldu
+      // (yukarıdaki oluşturma işlemi); burada yalnızca sağlayıcı referansı
+      // yazılıyor. Randevuyu tekrar `PENDING` yapmak, bu arada gelmiş bir
+      // `payment.paid` webhook'unun sonucunu ezerdi.
+      await prisma.payment.update({
+        where: { reservationId: created.id },
+        data: { providerRef: charge.providerRef, status: 'PENDING', ...komisyon },
+      });
       created.depositStatus = 'PENDING';
       redirectUrl = charge.redirectUrl;
     }
@@ -579,8 +615,9 @@ export async function setReservationStatus(args: {
     select: {
       depositAmount: true,
       depositStatus: true,
+      depositRefundHours: true,
+      customerId: true,
       startsAt: true,
-      business: { select: { depositRefundHours: true } },
       payment: { select: { providerRef: true, settlementStatus: true, netAmount: true, commissionAmount: true } },
     },
   });
@@ -598,10 +635,14 @@ export async function setReservationStatus(args: {
       // Kapora hizmet bedelinden düşülür; işletmenin hak edişi doğar.
       settlement = 'RELEASED';
     } else if (args.to === 'CANCELLED') {
-      const refund = refundOnCancel(
-        { refundHours: full.business.depositRefundHours },
-        full.startsAt,
-      );
+      // İPTAL EDEN KİM? Aynı hesap iki tarafa da uygulanıyordu: işletme
+      // randevuyu son anda iptal ettiğinde müşterinin kaporası yanıyordu.
+      // İşletmenin ya da sistemin iptalinde müşteri her zaman iade alır;
+      // süre kuralı yalnızca MÜŞTERİNİN kendi iptali için geçerli.
+      const musteriIptali = args.actorId === full.customerId;
+      const refund = musteriIptali
+        ? refundOnCancel({ refundHours: full.depositRefundHours }, full.startsAt)
+        : true;
       depositStatus = refund ? 'REFUNDED' : 'FORFEITED';
       settlement = refund ? 'REFUNDED' : 'RELEASED';
       depositNote = refund
@@ -617,7 +658,19 @@ export async function setReservationStatus(args: {
       where: { id: args.id },
       data: {
         status: args.to,
-        ...(releasesSlot ? { slotKey: null, cancelledAt: new Date() } : {}),
+        ...(releasesSlot
+          ? {
+              slotKey: null,
+              cancelledAt: new Date(),
+              // actorId yoksa iptal bir kuyruk işinden geliyor (ödeme süresi
+              // doldu gibi): sistem iptali.
+              cancelledBy: !args.actorId
+                ? 'SYSTEM'
+                : args.actorId === current.customerId
+                  ? 'CUSTOMER'
+                  : 'BUSINESS',
+            }
+          : {}),
         ...(args.note !== undefined && releasesSlot ? { cancelReason: args.note } : {}),
         ...(depositStatus ? { depositStatus } : {}),
       },
@@ -643,35 +696,27 @@ export async function setReservationStatus(args: {
       });
     }
     if (settlement) {
+      // SON DURUM DEĞİL, BEKLEYEN DURUM yazılıyor. Para henüz hareket etmedi;
+      // "iade edildi" demek için sağlayıcının teyidi gerekiyor. Bekleyen
+      // durum kalıcı olduğu için süreç burada ölse bile iş kaybolmuyor.
       await tx.payment.update({
         where: { reservationId: res.id },
         data: {
-          settlementStatus: settlement,
-          releasedAt: new Date(),
-          ...(settlement === 'REFUNDED'
-            ? { status: 'REFUNDED', refundedAt: new Date(), settlementNote: 'Zamanında iptal — komisyon dahil tam iade' }
-            : { settlementNote: `Hak ediş: ${RESERVATION_STATUS_LABEL[args.to]}` }),
+          settlementStatus: BEKLEYEN[settlement],
+          settlementPendingAt: new Date(),
+          settlementNote: `${RESERVATION_STATUS_LABEL[args.to]} — sağlayıcı teyidi bekleniyor`,
         },
       });
     }
     return res;
   });
 
-  // Karar ödeme kuruluşuna bildirilir. Kayıt zaten güncellendi; sağlayıcı
-  // hatası müşterinin durumunu değiştirmemeli, bu yüzden loglanıp geçilir ve
-  // mutabakat için nota yazılır.
-  if (settlement && full?.payment?.providerRef) {
-    const ref = full.payment.providerRef;
-    const provider = paymentProvider();
-    const result =
-      settlement === 'REFUNDED' ? await provider.refund(ref) : await provider.release(ref);
-    if (!result.ok) {
-      console.error(`[rezzerv] hak ediş işlemi başarısız (${settlement}):`, args.id, result.reason);
-      await prisma.payment.update({
-        where: { reservationId: args.id },
-        data: { settlementNote: `Sağlayıcı hatası: ${result.reason ?? 'bilinmiyor'} — mutabakat gerekiyor` },
-      });
-    }
+  // Sağlayıcı teyidi işlem DIŞINDA isteniyor: ağ çağrısını transaction içinde
+  // beklemek kilidi gereksiz uzatır. Başarısız olursa kayıt bekleyen durumda
+  // kalıyor ve `mutabakat` işi tekrar deniyor — bu fonksiyon hiçbir koşulda
+  // fırlatmıyor, randevu durumu değişikliği bundan etkilenmiyor.
+  if (settlement) {
+    await mutabakatiTamamla(args.id);
   }
 
   const label = RESERVATION_STATUS_LABEL[args.to];

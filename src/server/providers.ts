@@ -123,6 +123,16 @@ export type WebhookEvent = {
   /** Bizim tarafımızdaki referans: rezervasyon kodu. */
   reference: string;
   reason?: string;
+  /**
+   * Sağlayıcının bildirdiği tutar ve para birimi (kuruş değil, TL tam sayı).
+   *
+   * Sözleşmenin parçası: olay yalnızca "ödendi" demiyor, NE KADAR ödendiğini
+   * de söylüyor. Beklediğimizden farklıysa olayı uygulamıyoruz — eksik
+   * tahsilatı tam ödeme saymak, işletmeye yapılmamış bir hak ediş yazmak
+   * demekti. Sağlayıcı göndermiyorsa alan boş kalır ve doğrulama atlanır.
+   */
+  amount?: number;
+  currency?: string;
 };
 
 export interface PaymentProvider {
@@ -195,6 +205,8 @@ const mockPayments: PaymentProvider = {
       providerRef: veri.providerRef,
       reference: veri.reference,
       ...(veri.reason ? { reason: veri.reason } : {}),
+      ...(typeof veri.amount === 'number' ? { amount: veri.amount } : {}),
+      ...(veri.currency ? { currency: veri.currency } : {}),
     };
   },
 };

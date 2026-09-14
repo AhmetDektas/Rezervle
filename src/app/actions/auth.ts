@@ -201,9 +201,11 @@ export async function choosePlanAction(planKey: string): Promise<ActionResult<un
       data: {
         planKey: plan.key,
         planPrice: plan.price,
-        // Kapora eklentisi pakete dahilse açılıyor; değilse yönetici elle
-        // açabilir (satış sonrası yükseltme).
-        ...(plan.deposit ? { depositAddon: true } : {}),
+        // `depositAddon`A DOKUNULMUYOR. Eskiden burada yalnızca AÇILIYOR,
+        // alt pakete geçişte kapatılmıyordu: üst paketi bir ay alan işletmede
+        // eklenti kalıcı olarak açık kalıyordu. Artık `depositAddon` "ayrıca
+        // satın alınmış eklenti" demek; pakete dahil olma hâli paketin
+        // kendisinden okunuyor (bkz. server/entitlements.ts kaporaHakki).
       },
     });
     return undefined;

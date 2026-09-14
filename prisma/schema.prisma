@@ -102,6 +102,11 @@ model Business {
   coverUrl        String?
   brandHue        Int              @default(214)
   priceLevel      Int              @default(2)
+  /// En düşük aktif hizmet fiyatı. Keşfet'te fiyat sıralaması bellekte, sayfa
+  /// çekildikten SONRA yapılıyordu; en ucuz işletme sonraki sayfada kalıyordu.
+  /// Sıralamanın veri sorgusunda olabilmesi için burada tutuluyor
+  /// (bkz. server/pricing.ts — hizmet değişiminde tazelenir).
+  minPrice        Int              @default(0)
   amenities       String           @default("[]")
   status          String           @default("PENDING") // PENDING | APPROVED | REJECTED | SUSPENDED
   rejectionReason String?
@@ -384,9 +389,16 @@ model Reservation {
 
   // Kapora, randevu anında hesaplanıp dondurulur: işletme sonradan oranı
   // değiştirse bile alınmış kapora değişmez.
-  depositAmount Int    @default(0)
+  depositAmount      Int     @default(0)
   // NONE: kapora yok · PENDING: 3DS bekleniyor · PAID · REFUNDED · FORFEITED
-  depositStatus String @default("NONE")
+  depositStatus      String  @default("NONE")
+  /// İade süresi de randevu anında DONDURULUR. Önceden iptalde işletmenin O
+  /// ANKİ ayarı okunuyordu: ayar değişince geçmiş randevuların şartı da
+  /// değişiyor, müşteri kabul ettiğinden başka bir kuralla karşılaşıyordu.
+  depositRefundHours Int     @default(0)
+  /// CUSTOMER | BUSINESS | SYSTEM. İşletmenin geç iptali müşterinin
+  /// kaporasını yakmamalı; aynı hesap iki tarafa da uygulanıyordu.
+  cancelledBy        String?
 
   // 3DS asenkron: musteri banka sayfasina gidiyor ve geri donmeyebilir.
   // O sirada saat bu kayda ayrilmis durumda. Bu tarih, odemesi tamamlanmayan
@@ -736,14 +748,23 @@ model Payment {
   // --- Komisyon ve hak ediş ---
   // Oran ödeme anında dondurulur: sözleşme sonradan değişse bile geçmiş
   // tahsilatın parçalanması değişmez.
-  commissionRate   Int       @default(0)
-  commissionAmount Int       @default(0) // platform payı
-  netAmount        Int       @default(0) // işletmeye kalan
+  commissionRate      Int       @default(0)
+  commissionAmount    Int       @default(0) // platform payı
+  netAmount           Int       @default(0) // işletmeye kalan
   // HELD: ödeme kuruluşunda bloke · RELEASED: işletmeye hak ediş yazıldı
   // REFUNDED: müşteriye iade edildi, komisyon da geri alındı
-  settlementStatus String    @default("NONE") // NONE | HELD | RELEASED | REFUNDED
-  releasedAt       DateTime?
-  settlementNote   String?
+  //
+  // *_PENDING: karar verildi ama SAĞLAYICI HENÜZ TEYİT ETMEDİ. Son durumu
+  // yalnızca sağlayıcı teyidi yazar (bkz. server/settlement.ts); böylece
+  // para hareket etmeden "iade edildi" yazan kayıt oluşmuyor. Bekleyen
+  // kayıtları kuyruk tekrar deniyor.
+  settlementStatus    String    @default("NONE") // NONE | HELD | REFUND_PENDING | RELEASE_PENDING | RELEASED | REFUNDED
+  /// Bekleyen duruma GEÇİŞ anı. Tekrar deneme işi, ilk denemesi hâlâ süren
+  /// kayıtları bu alana bakarak dışarıda bırakıyor — aynı tahsilat için iki
+  /// eşzamanlı sağlayıcı çağrısı yapılmasın.
+  settlementPendingAt DateTime?
+  releasedAt          DateTime?
+  settlementNote      String?
 
   @@index([settlementStatus])
 }

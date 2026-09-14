@@ -208,7 +208,50 @@ function kampanyaKodu(slug: string): string {
   throw new Error(`Kampanya kodu üretilemedi: ${slug}`);
 }
 
+/**
+ * Üretim koruması.
+ *
+ * Bu betik `reset()` ile BÜTÜN tabloları siliyor ve ortak parolalı demo
+ * hesapları açıyor. `npm run setup` ve `npm run e2e` de onu çağırıyor. İçinde
+ * hiçbir koruma yoktu: yanlış `DATABASE_URL` ile çalıştırılan tek bir komut
+ * üretim verisini siler ve yerine 120 uydurma işletme yazardı.
+ *
+ * `NODE_ENV=production` engeli asıl kapı: üretim sunucusunun `.env` dosyası
+ * bu değeri taşıyor, dolayısıyla orada çalıştırılan her tohum komutu daha
+ * ilk satırda duruyor.
+ *
+ * Veritabanı ADINA bakıp engellemek denendi ve geri alındı: yerel geliştirme
+ * veritabanı da `rezzerv` adını taşıyor, yani normal `npm run db:seed` akışı
+ * kırılıyordu. Kırılan koruma, kapatılan korumadır. Ad yalnızca uyarı olarak
+ * yazdırılıyor.
+ */
+function uretimKorumasi(): void {
+  const zorla = process.env['SEED_ALLOW_PRODUCTION'] === 'true';
+  if (zorla) {
+    console.warn('UYARI: SEED_ALLOW_PRODUCTION=true — koruma devre dışı.');
+    return;
+  }
+
+  if (process.env['NODE_ENV'] === 'production') {
+    throw new Error(
+      'Demo tohumu üretim ortamında çalıştırılamaz. Bu betik bütün tabloları siler. ' +
+        'Gerçekten istiyorsanız SEED_ALLOW_PRODUCTION=true verin.',
+    );
+  }
+
+  // Ad kontrolü UYARI, engel değil: yerel geliştirme veritabanı da `rezzerv`
+  // adını taşıyor. Ada bakıp engellemek normal `npm run db:seed` akışını
+  // kırardı ve geliştirici de korumayı kalıcı olarak kapatmanın yolunu
+  // arardı — koruma o noktada işe yaramaz hâle gelir.
+  const url = process.env['DATABASE_URL'] ?? '';
+  const ad = url.split('/').pop()?.split('?')[0] ?? '';
+  if (ad) {
+    console.warn(`Tohum "${ad}" veritabanındaki BÜTÜN kayıtları silecek.`);
+  }
+}
+
 async function main(): Promise<void> {
+  uretimKorumasi();
   console.log('Tohum verisi hazırlanıyor…');
   await reset();
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
@@ -726,6 +769,14 @@ async function main(): Promise<void> {
   // kalan sayaçla işletme başvurusu sınırına takılır ve test veri yüzünden
   // değil geçmiş koşu yüzünden düşer.
   await hizSiniriSayaclariniTemizle();
+
+  // Keşfet'teki fiyat sıralaması `Business.minPrice` üzerinden yapılıyor.
+  // Tohum bu alanı doldurmazsa 120 işletmenin hepsi 0 ile kalır ve sıralama
+  // rastgele görünür — üstelik sessizce, çünkü sorgu yine çalışır.
+  await prisma.$executeRawUnsafe(`
+    UPDATE "Business" b SET "minPrice" = COALESCE(
+      (SELECT MIN(s.price) FROM "Service" s WHERE s."businessId" = b.id AND s.active = true), 0)
+  `);
 
   // Tohum kullanıcıları kurgusal ama uygulama onları gerçek kullanıcı gibi
   // görüyor: rıza kaydı olmayan hesap diş/veteriner randevusu alamaz. Kayıt

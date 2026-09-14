@@ -32,6 +32,7 @@ async function isletmeSatiri(id: string) {
   const row = await prisma.business.findUniqueOrThrow({
     where: { id },
     select: {
+      planKey: true,
       depositAddon: true,
       depositEnabled: true,
       depositKind: true,

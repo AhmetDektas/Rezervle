@@ -33,6 +33,7 @@ export default async function BookingPage({
       name: true,
       brandHue: true,
       category: { select: { sector: true } },
+      planKey: true,
       depositAddon: true,
       depositEnabled: true,
       depositKind: true,

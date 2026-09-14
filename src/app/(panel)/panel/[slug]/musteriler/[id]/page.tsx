@@ -18,6 +18,9 @@ import { serviceLabel } from '@/lib/services';
 export const metadata: Metadata = { title: 'Müşteri kartı' };
 export const dynamic = 'force-dynamic';
 
+/** Geçmiş listesinde gösterilen kayıt sayısı; toplamlar bundan bağımsız. */
+const LISTE_ADEDI = 40;
+
 type Params = Promise<{ slug: string; id: string }>;
 
 export default async function CustomerDetailPage({ params }: { params: Params }) {
@@ -45,11 +48,12 @@ export default async function CustomerDetailPage({ params }: { params: Params })
   if (!customer) notFound();
 
   // Yalnızca bu işletmedeki randevular gösterilir; başka işletmenin verisi sızmaz.
-  const [reservations, notes] = await Promise.all([
+  const kapsam = { businessId: business.id, customerId: id };
+  const [reservations, notes, toplamlar, gelmeyen, harcama] = await Promise.all([
     prisma.reservation.findMany({
-      where: { businessId: business.id, customerId: id },
+      where: kapsam,
       orderBy: [{ date: 'desc' }, { startMin: 'desc' }],
-      take: 40,
+      take: LISTE_ADEDI,
       include: {
         service: { select: { name: true } },
         // Ek hizmetlerin varlığı listede de görünsün (bkz. serviceLabel).
@@ -62,13 +66,26 @@ export default async function CustomerDetailPage({ params }: { params: Params })
       orderBy: { createdAt: 'desc' },
       include: { author: { select: { name: true } } },
     }),
+    // TOPLAMLAR AYRI SORGULARDAN.
+    //
+    // Önceden ziyaret sayısı, gelmeme sayısı ve harcama, ekranda gösterilen
+    // SON 40 kayıttan hesaplanıyordu. 40'tan fazla randevusu olan — yani en
+    // değerli — müşterilerde bu sayılar sessizce yanlıştı ve her zaman olduğundan
+    // düşük çıkıyordu. Sayım veritabanında, listeden bağımsız yapılıyor.
+    prisma.reservation.count({ where: kapsam }),
+    prisma.reservation.count({ where: { ...kapsam, status: 'NO_SHOW' } }),
+    prisma.reservation.aggregate({
+      where: { ...kapsam, status: 'COMPLETED' },
+      _sum: { finalPrice: true },
+      _count: { _all: true },
+    }),
   ]);
 
-  if (reservations.length === 0) notFound();
+  if (toplamlar === 0) notFound();
 
-  const completed = reservations.filter((r) => r.status === 'COMPLETED');
-  const noShow = reservations.filter((r) => r.status === 'NO_SHOW').length;
-  const spend = completed.reduce((s, r) => s + r.finalPrice, 0);
+  const noShow = gelmeyen;
+  const spend = harcama._sum.finalPrice ?? 0;
+  const completedCount = harcama._count._all;
   const t = today();
   const upcoming = reservations.filter(
     (r) => r.date >= t && ['PENDING', 'CONFIRMED', 'ARRIVED'].includes(r.status),
@@ -110,8 +127,8 @@ export default async function CustomerDetailPage({ params }: { params: Params })
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Toplam randevu" value={String(reservations.length)} />
-        <StatCard label="Tamamlanan" value={String(completed.length)} />
+        <StatCard label="Toplam randevu" value={String(toplamlar)} />
+        <StatCard label="Tamamlanan" value={String(completedCount)} />
         <StatCard label="Toplam harcama" value={money(spend)} tone="money" />
         <StatCard
           label="Gelmediği randevu"

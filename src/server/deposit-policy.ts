@@ -1,5 +1,6 @@
 import 'server-only';
 import type { DepositPolicy } from '@/lib/deposit';
+import { kaporaHakki } from './entitlements';
 
 /**
  * Kapora politikasının tek kurulum yeri.
@@ -13,6 +14,8 @@ import type { DepositPolicy } from '@/lib/deposit';
 
 /** İşletme satırından okunan kapora sütunları. */
 export type DepositColumns = {
+  /** Paket anahtarı: kapora hakkının bir yarısı buradan geliyor. */
+  planKey: string;
   depositAddon: boolean;
   depositEnabled: boolean;
   depositKind: string;
@@ -35,7 +38,11 @@ export function depositsEnabledPlatformWide(): boolean {
 export function depositPolicyFor(business: DepositColumns): DepositPolicy {
   return {
     platformEnabled: depositsEnabledPlatformWide(),
-    addon: business.depositAddon,
+    // Etkin hak = pakete dahil olan + ayrıca satın alınmış eklenti.
+    // Önceden yalnızca `depositAddon` okunuyordu ve o alan paket seçiminde
+    // açılıp hiç kapatılmıyordu; alt pakete geçen işletmede hak kalıcı
+    // oluyordu (bkz. server/entitlements.ts).
+    addon: kaporaHakki(business),
     enabled: business.depositEnabled,
     kind: business.depositKind,
     value: business.depositValue,
