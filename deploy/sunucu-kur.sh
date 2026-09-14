@@ -46,6 +46,13 @@ sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='rezzerv'" |
 echo "veritabanı hazır"
 
 # --- 3) Kod ---------------------------------------------------------------
+# Git, sahibi farklı olan bir depoda root ile çalışmayı reddediyor
+# ("dubious ownership"). Dizin artık `rezzerv` kullanıcısına ait ama dağıtım
+# root olarak koşuyor, dolayısıyla `git fetch` bu istisna olmadan hiç
+# çalışmıyor. Canlıda tam olarak bu görüldü:
+#
+#   fatal: detected dubious ownership in repository at '/opt/rezzerv'
+git config --global --add safe.directory "$UYGULAMA" 2>/dev/null || true
 if [ -d "$UYGULAMA/.git" ]; then
   git -C "$UYGULAMA" fetch --quiet origin
   git -C "$UYGULAMA" reset --hard origin/main --quiet
