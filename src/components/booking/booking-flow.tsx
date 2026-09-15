@@ -238,7 +238,10 @@ export function BookingFlow({
       startMin,
       note: note.trim() || undefined,
       promotionCode: promo.trim() || undefined,
-      paymentMethod: payment,
+      // Tahsil edilecek kapora yoksa yöntem her zaman "işletmede": seçim
+      // ekranı da gösterilmiyor ve online ödemenin yapacağı bir şey yok.
+      // Aksi hâlde kayıtta hiç gerçekleşmemiş bir online ödeme yazardı.
+      paymentMethod: depositAmount > 0 ? payment : 'AT_VENUE',
     });
     setSubmitting(false);
 
@@ -672,25 +675,45 @@ export function BookingFlow({
               />
             </Field>
 
-            <fieldset>
-              <legend className="text-[13px] font-medium text-ink-2">
-                {depositAmount > 0 ? 'Kalan tutarın ödemesi' : 'Ödeme'}
-              </legend>
-              <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
-                <PaymentOption
-                  selected={payment === 'AT_VENUE'}
-                  onSelect={() => setPayment('AT_VENUE')}
-                  title="İşletmede öde"
-                  subtitle="Randevu sonunda kasada ödersiniz."
-                />
-                <PaymentOption
-                  selected={payment === 'ONLINE'}
-                  onSelect={() => setPayment('ONLINE')}
-                  title="Online öde (demo)"
-                  subtitle="Test sağlayıcısı kullanılır, kart bilgisi istenmez."
-                />
+            {/*
+              ÖDEME SEÇİMİ YALNIZCA TAHSİLAT VARSA.
+
+              Seçenekler koşulsuz gösteriliyordu: kapora kapalıyken de "Online
+              öde" tıklanabiliyor, seçili görünüyor ve HİÇBİR ŞEY olmuyordu.
+              Tahsil edilecek tutar sıfır olduğu için `charge()` hiç çağrılmıyor,
+              dolayısıyla ödeme ekranı da açılmıyor. Müşteri online ödediğini
+              sanıp bekliyordu.
+
+              Kapora yokken ödemenin tamamı işletmede yapılıyor; ortada seçilecek
+              bir şey yok. Çalışmayan bir seçenek sunmaktansa durumu söylemek
+              doğru olan.
+            */}
+            {depositAmount > 0 ? (
+              <fieldset>
+                <legend className="text-[13px] font-medium text-ink-2">
+                  Kalan tutarın ödemesi
+                </legend>
+                <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
+                  <PaymentOption
+                    selected={payment === 'AT_VENUE'}
+                    onSelect={() => setPayment('AT_VENUE')}
+                    title="İşletmede öde"
+                    subtitle="Randevu sonunda kasada ödersiniz."
+                  />
+                  <PaymentOption
+                    selected={payment === 'ONLINE'}
+                    onSelect={() => setPayment('ONLINE')}
+                    title="Online öde (demo)"
+                    subtitle="Test sağlayıcısı kullanılır, kart bilgisi istenmez."
+                  />
+                </div>
+              </fieldset>
+            ) : (
+              <div className="flex items-start gap-2.5 rounded-xl border border-line bg-sunken px-3.5 py-3 text-[13.5px] text-ink-2">
+                <Info size={16} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
+                <span>Ödeme randevu sonunda işletmede yapılacak.</span>
               </div>
-            </fieldset>
+            )}
 
             {!loggedIn ? (
               <div className="flex items-start gap-2.5 rounded-xl border border-warn-line bg-warn-soft px-3.5 py-3 text-[13.5px] text-warn">
