@@ -20,16 +20,28 @@ jobs:
     name: Derle ve dogrula
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      # android-actions/setup-android@v3 artik yayindan kalkmis 'tools'
+      # paketini kurmaya calisiyor ve patliyor. Runner imajinda Android SDK
+      # zaten kurulu; tek eksik lisans onayi.
+      - name: Android SDK lisanslari
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SDKM=$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          echo "sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null 2>&1 || true
+          "$SDKM" "platforms;android-36" "platform-tools" > /dev/null
+          echo "kurulu platformlar:"; ls "$SDK/platforms"
 
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
