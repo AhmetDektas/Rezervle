@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.rezzerv.app",
+      "sha256_cert_fingerprints": [
+        "A7:FA:83:6B:51:1E:15:8D:41:89:5E:50:DB:A2:66:FB:9F:49:C9:9A:B5:E0:A4:09:79:36:5C:C8:24:13:DB:C5"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.rezzerv.isletme",
+      "sha256_cert_fingerprints": [
+        "A7:FA:83:6B:51:1E:15:8D:41:89:5E:50:DB:A2:66:FB:9F:49:C9:9A:B5:E0:A4:09:79:36:5C:C8:24:13:DB:C5"
+      ]
+    }
+  }
+]

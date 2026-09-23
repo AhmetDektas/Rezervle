@@ -1,0 +1,118 @@
+plugins {
+    id 'com.android.application'
+}
+
+/**
+ * Rezzerv Android — Trusted Web Activity (TWA).
+ *
+ * Uygulama kendi arayüzünü ÇİZMİYOR: telefondaki Chrome motorunu tam ekran
+ * açıp https://<site> adresini gösteriyor. Bu tercih bilinçli —
+ *
+ *  · Arayüz tek yerde kalıyor. Web'de düzelttiğimiz bir hata, mağaza
+ *    güncellemesi beklemeden telefonda da düzeliyor.
+ *  · Web Push (VAPID) olduğu gibi çalışıyor; Firebase'e ihtiyaç yok.
+ *  · APK ~1 MB. WebView paketleyen çözümler onlarca MB.
+ *
+ * Bedeli: adres çubuğunun gizlenmesi için sitenin
+ * /.well-known/assetlinks.json dosyasındaki parmak izinin, APK'yı imzalayan
+ * anahtarın parmak iziyle AYNI olması şart. Tutmazsa uygulama açılır ama
+ * tepede Chrome adres çubuğu görünür. CI bu eşleşmeyi derlemede denetliyor
+ * (bkz. .github/workflows/android.yml).
+ */
+
+/**
+ * Sitenin alan adı — TEK KAYNAK.
+ *
+ * Üç yerde birden kullanılıyor (bağ beyanı, derin bağlantı süzgeci, açılış
+ * adresi). Üçü elle yazılsaydı biri unutulduğunda uygulama açılır ama adres
+ * çubuğu görünürdü; sebebi de aylar sonra aranırdı. Alan adı değişince
+ * yalnızca burası (ya da -PrezzervHost) değişiyor.
+ */
+def siteHost = project.findProperty('rezzervHost') ?: '5.10.220.137.sslip.io'
+
+// Android kaynak dosyasında tırnak, metni sarmalayan özel karakter; JSON'un
+// kendi tırnakları \" olarak KAÇIRILMAK zorunda. Kaçırılmazsa aapt tırnakları
+// siler, bağ beyanı bozuk JSON olur ve doğrulama sessizce başarısız olur.
+def t = '\\"'
+def bagBeyani = "[{${t}relation${t}: [${t}delegate_permission/common.handle_all_urls${t}], " +
+        "${t}target${t}: {${t}namespace${t}: ${t}web${t}, ${t}site${t}: ${t}https://${siteHost}${t}}}]"
+
+def surumKodu = (project.findProperty('rezzervVersionCode') ?: '1') as Integer
+def surumAdi = project.findProperty('rezzervVersionName') ?: '1.0.0'
+
+android {
+    namespace 'com.rezzerv.twa'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 23
+        targetSdk 36
+        versionCode surumKodu
+        versionName surumAdi
+
+        resValue 'string', 'site_host', siteHost
+        resValue 'string', 'asset_statements', bagBeyani
+    }
+
+    // Müşteri ve işletme AYRI uygulamalar: ayrı simge, ayrı ad, ayrı paket
+    // adı ve ayrı açılış adresi. İşletme sahibi telefonunda müşteri
+    // uygulamasını değil, kendi panelini açan bir uygulama görüyor.
+    flavorDimensions += 'uygulama'
+    productFlavors {
+        musteri {
+            dimension 'uygulama'
+            applicationId 'com.rezzerv.app'
+            resValue 'string', 'launch_url', "https://${siteHost}/"
+        }
+        isletme {
+            dimension 'uygulama'
+            applicationId 'com.rezzerv.isletme'
+            // İşletme uygulaması doğrudan panele düşüyor; oturum yoksa
+            // uygulama giriş sayfasına yönlendiriyor (web tarafı hallediyor).
+            resValue 'string', 'launch_url', "https://${siteHost}/panel"
+        }
+    }
+
+    signingConfigs {
+        release {
+            // Anahtar deposu ortam değişkeniyle geliyor; depoda tutulmuyor.
+            // Yoksa imzalama ayarı boş kalır ve Gradle açık bir hata verir —
+            // sessizce imzasız APK üretmekten iyidir, çünkü imzasız APK
+            // telefona kurulmaz ve bu ancak kurulum anında fark edilirdi.
+            def depo = System.getenv('REZZERV_KEYSTORE_FILE')
+            if (depo) {
+                storeFile file(depo)
+                storePassword System.getenv('REZZERV_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('REZZERV_KEY_ALIAS')
+                keyPassword System.getenv('REZZERV_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            // Hata ayıklama sürümü FARKLI paket adı alıyor ki telefona
+            // yayın sürümüyle yan yana kurulabilsin. Hata ayıklama anahtarı
+            // assetlinks ile eşleşmediği için bu sürümde adres çubuğu görünür.
+            applicationIdSuffix '.debug'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // TWA'nın kendi kodu yok; yalnızca kütüphane ve kaynaklar paketleniyor.
+    buildFeatures {
+        buildConfig false
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
+}

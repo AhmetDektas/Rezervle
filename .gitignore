@@ -18,3 +18,9 @@ playwright-report
 .DS_Store
 tsconfig.tsbuildinfo
 .gstack/
+# Android imzalama anahtari ASLA depoya girmez: bu anahtarla imzalanan her
+# APK "Rezzerv" sayilir ve anahtar sizarsa sahte surum yayinlanabilir.
+# Depo: ~/.rezzerv/android/ · CI: GitHub Secrets.
+*.keystore
+*.jks
+*.p12

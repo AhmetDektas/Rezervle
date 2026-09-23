@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Uyarlanabilir simgenin ön katmanı. Maskelenebilir web simgesi %80 güvenli
+     alana göre çizilmiş, Android ise ortadaki %66'yı garanti ediyor; içe
+     boşluk vermezsek yuvarlak maskede kenarlar kırpılır. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_foreground"
+    android:inset="16%" />

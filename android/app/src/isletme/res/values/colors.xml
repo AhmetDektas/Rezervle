@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- public/isletme.webmanifest ile aynı lacivert. -->
+<resources>
+    <color name="colorPrimary">#0B1F3A</color>
+    <color name="navigationColor">#0B1F3A</color>
+    <color name="backgroundColor">#0B1F3A</color>
+    <color name="ic_launcher_background">#0B1F3A</color>
+</resources>

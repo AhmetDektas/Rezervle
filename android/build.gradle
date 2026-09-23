@@ -1,0 +1,5 @@
+// Android Gradle Plugin sürümü tek yerde. Gradle sürümüyle uyumlu olmak
+// zorunda: AGP 8.13 en az Gradle 8.13 ister (bkz. gradle-wrapper.properties).
+plugins {
+    id 'com.android.application' version '8.13.2' apply false
+}

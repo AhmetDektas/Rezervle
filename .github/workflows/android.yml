@@ -1,0 +1,137 @@
+name: Android APK
+
+# Neden CI'da derleniyor: Android derlemesi JDK 17 + Android SDK istiyor,
+# geliştirme makinesinde ikisi de yok. Burada derlenince APK her zaman aynı
+# ortamda, aynı anahtarla üretiliyor ve çıktı doğrudan indirilebiliyor.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'public/.well-known/assetlinks.json'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  derle:
+    name: Derle ve dogrula
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Anahtar deposunu coz
+        env:
+          ANAHTAR_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANAHTAR_B64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 gizli degeri tanimli degil."
+            exit 1
+          fi
+          printf '%s' "$ANAHTAR_B64" | base64 -d > "$RUNNER_TEMP/rezzerv.p12"
+          echo "depo boyutu: $(stat -c%s "$RUNNER_TEMP/rezzerv.p12") bayt"
+
+      - name: Derle
+        working-directory: android
+        env:
+          REZZERV_KEYSTORE_FILE: ${{ runner.temp }}/rezzerv.p12
+          REZZERV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          REZZERV_KEY_ALIAS: rezzerv
+          REZZERV_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          gradle --no-daemon \
+            -PrezzervVersionCode=${{ github.run_number }} \
+            -PrezzervVersionName=1.0.${{ github.run_number }} \
+            assembleRelease bundleRelease
+
+      - name: Uretilen kaynak degerleri
+        working-directory: android
+        run: |
+          # Bag beyani (asset_statements) tirnak kacirma hatasina cok acik.
+          # Derlemeye GIREN metni yazdirmak, telefonda adres cubugu cikinca
+          # sebebi aramaktan ucuz.
+          for f in $(find app/build/generated/res -name 'gradleResValues.xml' | sort); do
+            echo "--- $f"; cat "$f"; echo
+          done
+
+      - name: APK imzasini ve bag beyanini dogrula
+        run: |
+          set -euo pipefail
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "build-tools: $BT"
+
+          MUSTERI=android/app/build/outputs/apk/musteri/release/app-musteri-release.apk
+          ISLETME=android/app/build/outputs/apk/isletme/release/app-isletme-release.apk
+          for f in "$MUSTERI" "$ISLETME"; do
+            [ -f "$f" ] || { echo "::error::APK yok: $f"; exit 1; }
+            echo "=== $f ($(stat -c%s "$f") bayt)"
+            "$BT/aapt2" dump badging "$f" | grep -E "^package|launchable-activity|uses-permission" || true
+          done
+
+          PARMAK=$("$BT/apksigner" verify --print-certs "$MUSTERI" \
+            | grep -i "certificate SHA-256 digest" | head -1 | awk '{print $NF}' | tr 'A-F' 'a-f')
+          echo "APK parmak izi: $PARMAK"
+
+          # Canli sitedeki beyan ile APK'yi imzalayan anahtar AYNI olmali.
+          # Tutmazsa uygulama acilir ama tepede Chrome adres cubugu gorunur;
+          # bu, TWA'da en sik yapilan ve en gec fark edilen hatadir.
+          BEYAN=public/.well-known/assetlinks.json
+          for PAKET in com.rezzerv.app com.rezzerv.isletme; do
+            BEKLENEN=$(jq -r --arg p "$PAKET" \
+              '.[] | select(.target.package_name==$p) | .target.sha256_cert_fingerprints[0]' "$BEYAN" \
+              | tr -d ':' | tr 'A-F' 'a-f')
+            if [ "$BEKLENEN" != "$PARMAK" ]; then
+              echo "::error::$PAKET icin assetlinks.json parmak izi APK ile uyusmuyor."
+              echo "  beyan: $BEKLENEN"
+              echo "  apk  : $PARMAK"
+              exit 1
+            fi
+            echo "$PAKET parmak izi eslesti"
+          done
+
+      - name: Canli sitedeki beyani kontrol et
+        continue-on-error: true
+        run: |
+          # Site henuz guncellenmemis olabilir; bu adim derlemeyi dusurmez ama
+          # eksikligi gorunur kilar.
+          URL="https://5.10.220.137.sslip.io/.well-known/assetlinks.json"
+          KOD=$(curl -sk -o /tmp/canli.json -w '%{http_code}' --max-time 20 "$URL" || echo 000)
+          echo "$URL -> $KOD"
+          if [ "$KOD" = "200" ]; then
+            jq -r '.[].target.package_name' /tmp/canli.json
+            diff <(jq -S . /tmp/canli.json) <(jq -S . public/.well-known/assetlinks.json) \
+              && echo "canli beyan depodakiyle ayni" \
+              || echo "::warning::Canli beyan depodakinden farkli — siteyi guncelle."
+          else
+            echo "::warning::Canli site beyani sunmuyor ($KOD). Adres cubugu gizlenmez."
+          fi
+
+      - name: APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rezzerv-apk
+          path: android/app/build/outputs/apk/*/release/*.apk
+          if-no-files-found: error
+
+      - name: AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: rezzerv-aab
+          path: android/app/build/outputs/bundle/*Release/*.aab
+          if-no-files-found: error

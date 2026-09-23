@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Renkler public/manifest.webmanifest ile aynı olmalı: uygulama ile
+     tarayıcıdaki PWA arasında renk farkı olması kullanıcıya iki ayrı ürün
+     hissi verir. -->
+<resources>
+    <color name="colorPrimary">#176BFF</color>
+    <color name="navigationColor">#FFFFFF</color>
+    <color name="backgroundColor">#F5F8FC</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>
