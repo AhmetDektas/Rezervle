@@ -11,7 +11,9 @@ plugins {
  *  · Arayüz tek yerde kalıyor. Web'de düzelttiğimiz bir hata, mağaza
  *    güncellemesi beklemeden telefonda da düzeliyor.
  *  · Web Push (VAPID) olduğu gibi çalışıyor; Firebase'e ihtiyaç yok.
- *  · APK ~1 MB. WebView paketleyen çözümler onlarca MB.
+ *  · APK 3,8 MB (ölçüldü). Neredeyse tamamı androidbrowserhelper'ın
+ *    bağımlılıkları — appcompat ve guava. Kendi WebView'ını paketleyen
+ *    çözümler bunun birkaç katı.
  *
  * Bedeli: adres çubuğunun gizlenmesi için sitenin
  * /.well-known/assetlinks.json dosyasındaki parmak izinin, APK'yı imzalayan

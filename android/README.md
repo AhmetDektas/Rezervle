@@ -17,7 +17,7 @@ Sonuçları:
 - Web'de düzelttiğin şey, mağaza güncellemesi beklemeden telefonda da düzelir.
 - Web Push olduğu gibi çalışır; Firebase'e gerek yok. Bildirim, Chrome'un
   değil uygulamanın adıyla görünür (`DelegationService`).
-- APK ~1 MB.
+- APK 3,8 MB (ölçüldü; çoğu androidbrowserhelper bağımlılıkları).
 - Sitenin bağlantıları uygulamada açılır (derin bağlantı).
 
 ## Adres çubuğu görünüyorsa

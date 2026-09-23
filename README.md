@@ -344,6 +344,25 @@ müşavir ve avukat görüşü alınmalıdır.
 
 ---
 
+## Mobil
+
+Uygulama web'de PWA olarak çalışıyor (ayrı müşteri ve işletme manifestosu,
+servis çalışanı, çevrimdışı sayfası). Android tarafında bunun üzerine
+**Trusted Web Activity** paketlenmiş durumda: ayrı bir arayüz yok, telefondaki
+Chrome motoru adres çubuğu olmadan tam ekran açılıyor.
+
+| Uygulama | Paket adı | Açılış |
+|---|---|---|
+| Rezzerv | `com.rezzerv.app` | `/` |
+| Rezzerv İşletme | `com.rezzerv.isletme` | `/panel` |
+
+APK'lar `Android APK` iş akışında üretiliyor; çalışma sayfasındaki
+`rezzerv-apk` eserinden indirilir. Ayrıntı: [`android/README.md`](android/README.md).
+
+Adres çubuğunun gizlenmesi, sitenin `/.well-known/assetlinks.json` dosyasındaki
+parmak izinin APK'yı imzalayan anahtarla aynı olmasına bağlı. İş akışı bu
+eşleşmeyi her derlemede denetliyor.
+
 ## Sağlayıcılar
 
 `src/server/providers.ts` e-posta, SMS ve ödeme için arayüz tanımlar.
