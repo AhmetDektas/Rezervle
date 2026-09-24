@@ -104,9 +104,13 @@ android {
         }
     }
 
+    // Java 8 — Bubblewrap'in kullandığı sürüm. 17 verilmişti; eski bir
+    // Android sürümünde çalışan cihazda daha yeni bayt kodu ve çekirdek
+    // kütüphane çağrıları çalışma anında bulunamayabiliyor. Uygulamanın
+    // kendi kodu birkaç yüz satır, 17'nin sağladığı hiçbir şeye ihtiyacı yok.
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 
     // TWA'nın kendi kodu yok; yalnızca kütüphane ve kaynaklar paketleniyor.
@@ -116,5 +120,13 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.3'
+    // 2.6.2 — Bubblewrap'in KARARLI olarak gönderdiği sürüm. Önce "en yeni"
+    // diye 2.7.3 seçilmişti; o sürüm androidx.core 1.17.0 çekiyor, 2.6.2 ise
+    // 1.0.2. Aradaki fark eski Android sürümlerinde belirleyici: yeni androidx
+    // sürümleri yeni platform davranışları varsayıyor ve derleme başarılı olsa
+    // bile uygulama eski cihazda açılışta ölebiliyor.
+    //
+    // Bu projede "en yeni" bir değer taşımıyor: TWA yüzeyi yıllardır sabit ve
+    // 2.6.2 Play'deki TWA'ların çoğunun kullandığı sürüm.
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
 }
