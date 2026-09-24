@@ -23,7 +23,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Rezzerv">
+        android:theme="@android:style/Theme.Translucent.NoTitleBar">
 
         <!-- Uygulama tarafındaki bağ beyanı. Sitedeki assetlinks.json ile
              ÇİFT YÖNLÜ eşleşme gerekiyor: site uygulamaya, uygulama siteye
@@ -36,8 +36,7 @@
             android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
             android:configChanges="keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Rezzerv.Launcher">
+            android:label="@string/app_name">
 
             <meta-data
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
