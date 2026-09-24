@@ -18,6 +18,7 @@
     </queries>
 
     <application
+        android:name=".TeshisUygulama"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -82,5 +83,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <!-- GEÇİCİ teşhis ekranı. Uygulama teması saydam olduğu için burada
+             opak bir tema ŞART, yoksa yazı okunamaz. Sebep bulununca bu
+             etkinlik de TeshisUygulama da silinecek. -->
+        <activity
+            android:name=".CokmeEkrani"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light" />
     </application>
 </manifest>
