@@ -48,18 +48,6 @@
             <meta-data
                 android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
                 android:resource="@color/navigationColor" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                android:resource="@drawable/splash" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
-                android:resource="@color/backgroundColor" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
-                android:value="300" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
-                android:value="${applicationId}.fileprovider" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -78,16 +66,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Açılış görselini Chrome sürecine aktarmak için gerekli. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/filepaths" />
-        </provider>
+        <!-- Açılış ekranı YOK ve bu bilinçli. Kütüphane, verilen drawable'ı
+             Bitmap'e çevirmek zorunda; katmanlı bir XML drawable'da genişlik
+             -1 hesaplanabiliyor ve uygulama açılışta çöküyor. Açılış görseli
+             zorunlu değil, çökme ise ürünün tamamını götürüyor. Görsel
+             istenirse Bubblewrap'in yaptığı gibi DÜZ PNG verilmeli.
+             Bunu taşıyan FileProvider de kaldırıldı; başka kullanıcısı yoktu. -->
 
         <!-- Bildirim devri: site Web Push ile bildirim gönderdiğinde
              bildirim Chrome'un değil, bu uygulamanın adıyla görünür. -->
